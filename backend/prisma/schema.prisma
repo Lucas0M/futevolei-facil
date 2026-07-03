@@ -1,0 +1,292 @@
+// schema.prisma
+// Naming convention: English for all models/fields/enums.
+// User-facing text (emails, UI labels) lives outside this file, in Portuguese.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  PLAYER
+}
+
+// INDIVIDUAL  -> each player registers and pays alone
+// DUO_FIXED   -> a logged-in user registers themself + a partner (name only,
+//                no account needed) and they split (or not) the payment
+// DUO_RANDOM  -> "cumbuca": individual registration only; team draw/pairing
+//                is OUT OF SCOPE for the MVP
+enum TournamentFormat {
+  INDIVIDUAL
+  DUO_FIXED
+  DUO_RANDOM
+}
+
+enum TournamentStatus {
+  DRAFT
+  PUBLISHED
+  REGISTRATIONS_CLOSED
+  CANCELLED
+  FINISHED
+}
+
+// Status of an INDIVIDUAL registration (used in INDIVIDUAL and DUO_RANDOM formats)
+enum RegistrationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+// Status of a DUO_FIXED team registration
+enum TeamRegistrationStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  GATEWAY // Mercado Pago
+  MANUAL // confirmed manually by an admin (e.g. paid in cash / outside the platform)
+}
+
+// Which part of a DUO_FIXED team's fee a given Payment covers.
+// FULL is used when the owner pays for both at once.
+enum TeamPaymentPortion {
+  OWNER_SHARE
+  PARTNER_SHARE
+  FULL
+}
+
+// ---------------------------------------------------------------------------
+// USERS & AUTH
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         UserRole @default(PLAYER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  tournamentsCreated  Tournament[]          @relation("TournamentCreatedBy")
+
+  registrations Registration[]
+  teamsOwned    Team[]         @relation("TeamOwner")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// TOURNAMENTS
+// ---------------------------------------------------------------------------
+
+model Tournament {
+  id          String           @id @default(uuid())
+  name        String
+  description String?
+  eventDate   DateTime
+  location    String
+  category    String
+  format      TournamentFormat
+
+  // Fee per REGISTRATION UNIT of the format:
+  // - INDIVIDUAL / DUO_RANDOM -> price per player
+  // - DUO_FIXED               -> total price for the pair
+  entryFee Decimal @db.Decimal(10, 2)
+
+  // Max number of REGISTRATION UNITS (players in INDIVIDUAL/DUO_RANDOM,
+  // teams in DUO_FIXED). The frontend chooses the right label per format.
+  maxSlots Int
+
+  registrationDeadline  DateTime
+  reservationTtlMinutes Int      @default(20) // temporary slot hold before payment
+
+  // Refund policy (kept simple for the MVP)
+  refundFullBeforeDays    Int?
+  refundPartialBeforeDays Int?
+  refundPartialPercent    Decimal? @db.Decimal(5, 2)
+
+  cancellationDeadlineHours Int @default(48)
+
+  status TournamentStatus @default(DRAFT)
+
+  createdById String
+  createdBy   User   @relation("TournamentCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  registrations Registration[]
+  teams         Team[]
+
+  @@index([status, eventDate])
+  @@map("tournaments")
+}
+
+// ---------------------------------------------------------------------------
+// REGISTRATIONS — used for INDIVIDUAL and DUO_RANDOM formats
+// ---------------------------------------------------------------------------
+
+model Registration {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+
+  status        RegistrationStatus @default(PENDING_PAYMENT)
+  amountDue     Decimal            @db.Decimal(10, 2)
+  reservedUntil DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payment Payment?
+
+  // A player cannot register twice for the same tournament
+  @@unique([tournamentId, userId])
+  @@index([tournamentId, status])
+  @@map("registrations")
+}
+
+// ---------------------------------------------------------------------------
+// TEAMS — used exclusively for DUO_FIXED format.
+// The "owner" is the logged-in user who registers the pair.
+// The partner is just a free-text name, with no account.
+// ---------------------------------------------------------------------------
+
+model Team {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+
+  ownerUserId String
+  ownerUser   User   @relation("TeamOwner", fields: [ownerUserId], references: [id])
+
+  partnerName String // free-text partner name, editable later by an admin
+
+  status        TeamRegistrationStatus @default(PENDING_PAYMENT)
+  amountDue     Decimal                @db.Decimal(10, 2) // total price for the pair
+  reservedUntil DateTime? // hold applies to the whole team, not per player
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments Payment[] // up to 2 (OWNER_SHARE + PARTNER_SHARE), or 1 (FULL)
+
+  // The owner cannot have two teams in the same tournament
+  @@unique([tournamentId, ownerUserId])
+  @@index([tournamentId, status])
+  @@map("teams")
+}
+
+// ---------------------------------------------------------------------------
+// PAYMENTS
+// Linked to EITHER a Registration (INDIVIDUAL/DUO_RANDOM) OR a Team (DUO_FIXED).
+// This XOR rule is enforced in the application layer, not at the DB level.
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id String @id @default(uuid())
+
+  registrationId String?       @unique
+  registration   Registration? @relation(fields: [registrationId], references: [id])
+
+  // Not unique: a Team can have up to 2 payments (half + half, or one FULL)
+  teamId      String?
+  team        Team?               @relation(fields: [teamId], references: [id])
+  teamPortion TeamPaymentPortion? // only set when teamId is not null
+
+  amount Decimal       @db.Decimal(10, 2)
+  method PaymentMethod
+  status PaymentStatus @default(PENDING)
+
+  gatewayPaymentId    String? @unique
+  gatewayPreferenceId String?
+  rawPayload          Json?
+
+  confirmedByAdminId String? // set when method = MANUAL
+
+  paidAt     DateTime?
+  refundedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  webhookEvents WebhookEvent[]
+
+  // Prevents two active payments covering the same portion of the same team
+  @@unique([teamId, teamPortion])
+  @@map("payments")
+}
+
+// Guarantees idempotent webhook processing: we never process
+// the same external event twice.
+model WebhookEvent {
+  id        String   @id @default(uuid())
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  provider        String // "mercadopago"
+  externalEventId String @unique
+  eventType       String
+  payload         Json
+  processedAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("webhook_events")
+}
