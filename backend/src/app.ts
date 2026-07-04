@@ -4,6 +4,7 @@ import { env } from "./config/env";
 import { errorHandler } from "./shared/middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { usersRoutes } from "./modules/users/users.routes";
+import { tournamentsRoutes } from "./modules/tournaments/tournaments.routes";
 
 export function createApp() {
   const app = express();
@@ -19,9 +20,7 @@ export function createApp() {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/users", usersRoutes);
-
-  // Feature routes will be mounted here as each module is implemented, e.g.:
-  // app.use("/api/tournaments", tournamentRoutes);
+  app.use("/api/tournaments", tournamentsRoutes);
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);
