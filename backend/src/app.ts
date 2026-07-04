@@ -5,6 +5,9 @@ import { errorHandler } from "./shared/middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { tournamentsRoutes } from "./modules/tournaments/tournaments.routes";
+import { tournamentRegistrationsRoutes } from "./modules/registrations/tournamentRegistrations.routes";
+import { registrationsRoutes } from "./modules/registrations/registrations.routes";
+import { teamsRoutes } from "./modules/registrations/teams.routes";
 
 export function createApp() {
   const app = express();
@@ -21,6 +24,9 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/users", usersRoutes);
   app.use("/api/tournaments", tournamentsRoutes);
+  app.use("/api/tournaments", tournamentRegistrationsRoutes);
+  app.use("/api/registrations", registrationsRoutes);
+  app.use("/api/teams", teamsRoutes);
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);
