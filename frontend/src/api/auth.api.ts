@@ -1,0 +1,28 @@
+import { httpClient } from "./httpClient";
+import type { AuthResponse } from "../types/api.types";
+
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export async function registerRequest(payload: RegisterPayload): Promise<AuthResponse> {
+  const { data } = await httpClient.post<AuthResponse>("/auth/register", payload);
+  return data;
+}
+
+export async function loginRequest(payload: LoginPayload): Promise<AuthResponse> {
+  const { data } = await httpClient.post<AuthResponse>("/auth/login", payload);
+  return data;
+}
+
+export async function forgotPasswordRequest(email: string): Promise<void> {
+  await httpClient.post("/auth/forgot-password", { email });
+}
