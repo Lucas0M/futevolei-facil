@@ -2,7 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getTournamentDetail } from "../../../api/tournaments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
-import { formatLabel, slotsUnitLabel, statusLabel, statusBadgeClasses } from "../../../shared/utils/tournamentLabels";
+import {
+  formatLabel,
+  slotsUnitLabel,
+  statusLabel,
+  statusBadgeClasses,
+} from "../../../shared/utils/tournamentLabels";
 import { RegistrationActionCard } from "../components/RegistrationActionCard";
 import type { TournamentDetail } from "../../../types/api.types";
 
@@ -15,12 +20,16 @@ export function TournamentDetailPage() {
 
   const fetchDetail = useCallback(async () => {
     if (!id) return;
+
     setError(null);
+
     try {
       const result = await getTournamentDetail(id);
       setTournament(result);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Não foi possível carregar este torneio."));
+      setError(
+        getApiErrorMessage(err, "Não foi possível carregar este torneio."),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -32,104 +41,169 @@ export function TournamentDetailPage() {
   }, [fetchDetail]);
 
   if (isLoading) {
-    return <p className="text-gray-500">Carregando torneio...</p>;
+    return (
+      <div className="flex justify-center py-20">
+        <p className="text-slate-400 text-lg">Carregando torneio...</p>
+      </div>
+    );
   }
 
   if (error || !tournament) {
     return (
-      <div>
-        <p className="text-red-600">{error ?? "Torneio não encontrado."}</p>
-        <Link to="/torneios" className="mt-4 inline-block text-sm text-green-700 hover:underline">
-          Voltar para a lista de torneios
+      <div className="mx-auto max-w-3xl rounded-2xl border border-red-500/20 bg-red-500/10 p-8">
+        <p className="text-red-300">{error ?? "Torneio não encontrado."}</p>
+
+        <Link
+          to="/torneios"
+          className="mt-5 inline-flex text-emerald-400 hover:text-emerald-300"
+        >
+          ← Voltar para torneios
         </Link>
       </div>
     );
   }
 
   return (
-    <div>
-      <Link to="/torneios" className="text-sm text-green-700 hover:underline">
+    <div className="mx-auto max-w-6xl">
+      <Link
+        to="/torneios"
+        className="inline-flex items-center text-sm font-medium text-emerald-400 transition hover:text-emerald-300"
+      >
         ← Voltar para torneios
       </Link>
 
-      <div className="mt-4 flex items-start justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">{tournament.name}</h1>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium ${statusBadgeClasses(tournament.status)}`}>
-          {statusLabel(tournament.status)}
-        </span>
+      {/* HERO */}
+
+      <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/70 p-8 backdrop-blur">
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-4xl font-black text-white">
+              {tournament.name}
+            </h1>
+
+            {tournament.description && (
+              <p className="mt-4 max-w-3xl leading-7 text-slate-300">
+                {tournament.description}
+              </p>
+            )}
+          </div>
+
+          <span
+            className={`rounded-full px-4 py-2 text-sm font-semibold ${statusBadgeClasses(
+              tournament.status,
+            )}`}
+          >
+            {statusLabel(tournament.status)}
+          </span>
+        </div>
       </div>
 
-      {tournament.description && <p className="mt-2 text-gray-600">{tournament.description}</p>}
+      {/* DADOS */}
 
-      <dl className="mt-6 grid grid-cols-2 gap-4 rounded-lg border border-gray-200 bg-white p-4 sm:grid-cols-3">
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Data</dt>
-          <dd className="text-gray-900">
-            {new Date(tournament.eventDate).toLocaleDateString("pt-BR", {
+      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          {
+            title: "Data",
+            value: new Date(tournament.eventDate).toLocaleDateString("pt-BR", {
               day: "2-digit",
               month: "2-digit",
               year: "numeric",
               hour: "2-digit",
               minute: "2-digit",
-            })}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Local</dt>
-          <dd className="text-gray-900">{tournament.location}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Categoria</dt>
-          <dd className="text-gray-900">{tournament.category}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Formato</dt>
-          <dd className="text-gray-900">{formatLabel(tournament.format)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Valor da inscrição</dt>
-          <dd className="text-gray-900">R$ {tournament.entryFee}</dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Prazo de inscrição</dt>
-          <dd className="text-gray-900">
-            {new Date(tournament.registrationDeadline).toLocaleDateString("pt-BR")}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Vagas ocupadas</dt>
-          <dd className="text-gray-900">
-            {tournament.occupiedSlots} de {tournament.maxSlots} {slotsUnitLabel(tournament.format, tournament.maxSlots)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase text-gray-500">Vagas disponíveis</dt>
-          <dd className="text-gray-900">
-            {tournament.availableSlots} {slotsUnitLabel(tournament.format, tournament.availableSlots)}
-          </dd>
-        </div>
-      </dl>
+            }),
+          },
+          {
+            title: "Local",
+            value: tournament.location,
+          },
+          {
+            title: "Categoria",
+            value: tournament.category,
+          },
+          {
+            title: "Formato",
+            value: formatLabel(tournament.format),
+          },
+          {
+            title: "Valor",
+            value: `R$ ${tournament.entryFee}`,
+          },
+          {
+            title: "Prazo de inscrição",
+            value: new Date(tournament.registrationDeadline).toLocaleDateString(
+              "pt-BR",
+            ),
+          },
+          {
+            title: "Vagas ocupadas",
+            value: `${tournament.occupiedSlots} de ${
+              tournament.maxSlots
+            } ${slotsUnitLabel(tournament.format, tournament.maxSlots)}`,
+          },
+          {
+            title: "Disponíveis",
+            value: `${tournament.availableSlots} ${slotsUnitLabel(
+              tournament.format,
+              tournament.availableSlots,
+            )}`,
+          },
+        ].map((item) => (
+          <div
+            key={item.title}
+            className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              {item.title}
+            </p>
 
-      {/* Registration action: register (individual/team) or cancel, depending on current state. */}
-      <RegistrationActionCard tournament={tournament} onRegistrationChanged={fetchDetail} />
+            <p className="mt-2 text-lg font-semibold text-white">
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
 
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold text-gray-900">Inscritos</h2>
+      {/* CARD DE INSCRIÇÃO */}
+
+      <div className="mt-8">
+        <RegistrationActionCard
+          tournament={tournament}
+          onRegistrationChanged={fetchDetail}
+        />
+      </div>
+
+      {/* INSCRITOS */}
+
+      <div className="mt-10">
+        <h2 className="mb-5 text-2xl font-bold text-white">Inscritos</h2>
+
         {tournament.registrants.length === 0 ? (
-          <p className="mt-2 text-gray-500">Ninguém se inscreveu ainda.</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-400">
+            Ainda não há inscritos neste torneio.
+          </div>
         ) : (
-          <ul className="mt-2 divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
+          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
             {tournament.registrants.map((registrant, index) => (
-              <li key={index} className="flex items-center justify-between px-4 py-2">
-                <span className="text-gray-900">
-                  {registrant.ownerName
-                    ? `${registrant.ownerName} + ${registrant.partnerName}`
-                    : registrant.name}
+              <div
+                key={index}
+                className="flex items-center justify-between border-b border-slate-800 px-6 py-4 last:border-none"
+              >
+                <div>
+                  <p className="font-semibold text-white">
+                    {registrant.ownerName
+                      ? `${registrant.ownerName} + ${registrant.partnerName}`
+                      : registrant.name}
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">Participante</p>
+                </div>
+
+                <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-medium text-slate-300">
+                  {registrant.status}
                 </span>
-                <span className="text-xs text-gray-500">{registrant.status}</span>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

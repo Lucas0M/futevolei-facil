@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
 import {
   createRegistration,
   listMyRegistrations,
@@ -7,8 +6,7 @@ import {
   cancelTeam,
 } from "../../../api/registrations.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
-import { useAuth } from "../../../context/AuthContext";
-import type { TournamentDetail, Registration, Team } from "../../../types/api.types";
+import type { TournamentDetail, Registration, Team } from "../../../type";
 
 interface MyEntry {
   kind: "registration" | "team";
@@ -16,9 +14,10 @@ interface MyEntry {
   status: Registration["status"];
 }
 
-// Statuses that still count as "actively registered" for this tournament -
-// CANCELLED/EXPIRED entries should not block a new registration attempt.
-const ACTIVE_STATUSES: Registration["status"][] = ["PENDING_PAYMENT", "CONFIRMED"];
+const ACTIVE_STATUSES: Registration["status"][] = [
+  "PENDING_PAYMENT",
+  "CONFIRMED",
+];
 
 const STATUS_LABELS: Record<Registration["status"], string> = {
   PENDING_PAYMENT: "Aguardando pagamento",
@@ -30,13 +29,13 @@ const STATUS_LABELS: Record<Registration["status"], string> = {
 
 interface Props {
   tournament: TournamentDetail;
-  onRegistrationChanged: () => void; // lets the parent page refetch the registrant list
+  onRegistrationChanged: () => void;
 }
 
-export function RegistrationActionCard({ tournament, onRegistrationChanged }: Props) {
-  const { user } = useAuth();
-  const location = useLocation();
-
+export function RegistrationActionCard({
+  tournament,
+  onRegistrationChanged,
+}: Props) {
   const [myEntry, setMyEntry] = useState<MyEntry | null>(null);
   const [isLoadingEntry, setIsLoadingEntry] = useState(true);
   const [partnerName, setPartnerName] = useState("");
@@ -45,36 +44,44 @@ export function RegistrationActionCard({ tournament, onRegistrationChanged }: Pr
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    // Anonymous visitors have nothing to check - skip the /registrations/me call.
-    if (!user) {
-      setIsLoadingEntry(false);
-      return;
-    }
-
     let isCancelled = false;
 
     async function loadMyEntry() {
       setIsLoadingEntry(true);
+
       try {
         const { registrations, teams } = await listMyRegistrations();
 
         const registration = registrations.find(
-          (r) => r.tournamentId === tournament.id && ACTIVE_STATUSES.includes(r.status)
+          (r) =>
+            r.tournamentId === tournament.id &&
+            ACTIVE_STATUSES.includes(r.status),
         );
-        const team = teams.find((t) => t.tournamentId === tournament.id && ACTIVE_STATUSES.includes(t.status));
+
+        const team = teams.find(
+          (t) =>
+            t.tournamentId === tournament.id &&
+            ACTIVE_STATUSES.includes(t.status),
+        );
 
         if (!isCancelled) {
           if (registration) {
-            setMyEntry({ kind: "registration", id: registration.id, status: registration.status });
+            setMyEntry({
+              kind: "registration",
+              id: registration.id,
+              status: registration.status,
+            });
           } else if (team) {
-            setMyEntry({ kind: "team", id: team.id, status: team.status });
+            setMyEntry({
+              kind: "team",
+              id: team.id,
+              status: team.status,
+            });
           } else {
             setMyEntry(null);
           }
         }
       } catch {
-        // Silently ignore - worst case the button stays available and the
-        // backend will reject a duplicate registration anyway (RN01).
       } finally {
         if (!isCancelled) {
           setIsLoadingEntry(false);
@@ -83,25 +90,39 @@ export function RegistrationActionCard({ tournament, onRegistrationChanged }: Pr
     }
 
     loadMyEntry();
+
     return () => {
       isCancelled = true;
     };
-  }, [tournament.id, user]);
+  }, [tournament.id]);
 
   async function handleRegister() {
     setError(null);
     setSuccessMessage(null);
     setIsSubmitting(true);
+
     try {
       const body = tournament.format === "DUO_FIXED" ? { partnerName } : {};
-      const created = (await createRegistration(tournament.id, body)) as (Registration | Team) & { id: string };
+
+      const created = (await createRegistration(tournament.id, body)) as (
+        | Registration
+        | Team
+      ) & { id: string };
 
       const kind = tournament.format === "DUO_FIXED" ? "team" : "registration";
-      setMyEntry({ kind, id: created.id, status: "PENDING_PAYMENT" });
+
+      setMyEntry({
+        kind,
+        id: created.id,
+        status: "PENDING_PAYMENT",
+      });
+
       setSuccessMessage("Inscrição realizada com sucesso!");
       onRegistrationChanged();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Não foi possível concluir a inscrição."));
+      setError(
+        getApiErrorMessage(err, "Não foi possível concluir a inscrição."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -109,20 +130,25 @@ export function RegistrationActionCard({ tournament, onRegistrationChanged }: Pr
 
   async function handleCancel() {
     if (!myEntry) return;
+
     setError(null);
     setSuccessMessage(null);
     setIsSubmitting(true);
+
     try {
       if (myEntry.kind === "registration") {
         await cancelRegistration(myEntry.id);
       } else {
         await cancelTeam(myEntry.id);
       }
+
       setMyEntry(null);
       setSuccessMessage("Inscrição cancelada.");
       onRegistrationChanged();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Não foi possível cancelar a inscrição."));
+      setError(
+        getApiErrorMessage(err, "Não foi possível cancelar a inscrição."),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -132,61 +158,69 @@ export function RegistrationActionCard({ tournament, onRegistrationChanged }: Pr
     return null;
   }
 
-  if (!user) {
-    return (
-      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-gray-700">Você precisa estar logado para se inscrever neste torneio.</p>
-        <Link
-          to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
-          className="mt-3 inline-block rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
-        >
-          Fazer login para se inscrever
-        </Link>
-      </div>
-    );
-  }
-
-  const canRegister = tournament.status === "PUBLISHED" && new Date(tournament.registrationDeadline) > new Date();
+  const canRegister =
+    tournament.status === "PUBLISHED" &&
+    new Date(tournament.registrationDeadline) > new Date();
 
   return (
-    <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
-      {successMessage && <p className="mb-3 text-sm text-green-700">{successMessage}</p>}
-      {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+    <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/70 p-6 backdrop-blur">
+      {successMessage && (
+        <div className="mb-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          {successMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
 
       {myEntry ? (
         <div>
-          <p className="text-gray-900">
-            Você já está inscrito neste torneio.{" "}
-            <span className="text-sm text-gray-500">({STATUS_LABELS[myEntry.status]})</span>
+          <p className="text-white font-medium">
+            Você já está inscrito neste torneio.
           </p>
+
+          <p className="mt-1 text-slate-400">
+            Status: {STATUS_LABELS[myEntry.status]}
+          </p>
+
           <button
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+            className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-2 font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
           >
             {isSubmitting ? "Cancelando..." : "Cancelar minha inscrição"}
           </button>
         </div>
       ) : !canRegister ? (
-        <p className="text-gray-500">As inscrições para este torneio não estão abertas no momento.</p>
+        <p className="text-slate-400">
+          As inscrições para este torneio não estão abertas no momento.
+        </p>
       ) : tournament.format === "DUO_FIXED" ? (
         <div>
-          <label htmlFor="partnerName" className="mb-1 block text-sm font-medium text-gray-700">
+          <label
+            htmlFor="partnerName"
+            className="mb-2 block text-sm font-medium text-slate-200"
+          >
             Nome do parceiro(a)
           </label>
-          <div className="flex gap-2">
+
+          <div className="flex flex-col gap-3 sm:flex-row">
             <input
               id="partnerName"
               type="text"
               value={partnerName}
               onChange={(e) => setPartnerName(e.target.value)}
               placeholder="Nome completo do seu parceiro"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-green-600 focus:outline-none focus:ring-1 focus:ring-green-600"
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white placeholder:text-slate-500 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
             />
+
             <button
               onClick={handleRegister}
               disabled={isSubmitting || partnerName.trim().length < 2}
-              className="whitespace-nowrap rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              className="rounded-xl bg-emerald-500 px-6 py-3 font-semibold text-white transition hover:bg-emerald-400 disabled:opacity-50"
             >
               {isSubmitting ? "Inscrevendo..." : "Inscrever dupla"}
             </button>
@@ -196,7 +230,7 @@ export function RegistrationActionCard({ tournament, onRegistrationChanged }: Pr
         <button
           onClick={handleRegister}
           disabled={isSubmitting}
-          className="rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          className="rounded-xl bg-emerald-500 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-50"
         >
           {isSubmitting ? "Inscrevendo..." : "Inscrever-se"}
         </button>
