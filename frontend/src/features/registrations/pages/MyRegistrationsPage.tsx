@@ -1,8 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { listMyRegistrations, cancelRegistration, cancelTeam } from "../../../api/registrations.api";
+import {
+  listMyRegistrations,
+  cancelRegistration,
+  cancelTeam,
+} from "../../../api/registrations.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
-import type { Registration, Team, RegistrationStatus } from "../../../types/api.types";
+import type {
+  Registration,
+  Team,
+  RegistrationStatus,
+} from "../../../types/api.types";
 
 const STATUS_LABELS: Record<RegistrationStatus, string> = {
   PENDING_PAYMENT: "Aguardando pagamento",
@@ -13,25 +21,26 @@ const STATUS_LABELS: Record<RegistrationStatus, string> = {
 };
 
 const STATUS_BADGE_CLASSES: Record<RegistrationStatus, string> = {
-  PENDING_PAYMENT: "bg-yellow-100 text-yellow-700",
-  CONFIRMED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-gray-100 text-gray-500",
-  EXPIRED: "bg-gray-100 text-gray-500",
-  REFUNDED: "bg-blue-100 text-blue-700",
+  PENDING_PAYMENT:
+    "bg-yellow-500/10 text-yellow-300 border border-yellow-500/20",
+  CONFIRMED: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20",
+  CANCELLED: "bg-slate-700 text-slate-300 border border-slate-600",
+  EXPIRED: "bg-slate-700 text-slate-300 border border-slate-600",
+  REFUNDED: "bg-sky-500/10 text-sky-300 border border-sky-500/20",
 };
 
-const CANCELLABLE_STATUSES: RegistrationStatus[] = ["PENDING_PAYMENT", "CONFIRMED"];
+const CANCELLABLE_STATUSES: RegistrationStatus[] = [
+  "PENDING_PAYMENT",
+  "CONFIRMED",
+];
 
-// A unified shape so both Registration (individual) and Team (duo) rows
-// can be rendered by the same list, without the page needing to know
-// which underlying entity each one is until the "cancel" action fires.
 interface UnifiedEntry {
   kind: "registration" | "team";
   id: string;
   tournamentId: string;
   tournamentName: string;
   eventDate: string;
-  label: string; // "Individual" or "Você + parceiro"
+  label: string;
   status: RegistrationStatus;
 }
 
@@ -43,6 +52,7 @@ export function MyRegistrationsPage() {
 
   const fetchMyRegistrations = useCallback(async () => {
     setError(null);
+
     try {
       const { registrations, teams } = await listMyRegistrations();
 
@@ -71,12 +81,15 @@ export function MyRegistrationsPage() {
         }));
 
       const all = [...registrationEntries, ...teamEntries].sort(
-        (a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()
+        (a, b) =>
+          new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime(),
       );
 
       setEntries(all);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Não foi possível carregar suas inscrições."));
+      setError(
+        getApiErrorMessage(err, "Não foi possível carregar suas inscrições."),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -89,65 +102,108 @@ export function MyRegistrationsPage() {
   async function handleCancel(entry: UnifiedEntry) {
     setCancellingId(entry.id);
     setError(null);
+
     try {
       if (entry.kind === "registration") {
         await cancelRegistration(entry.id);
       } else {
         await cancelTeam(entry.id);
       }
+
       await fetchMyRegistrations();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Não foi possível cancelar esta inscrição."));
+      setError(
+        getApiErrorMessage(err, "Não foi possível cancelar esta inscrição."),
+      );
     } finally {
       setCancellingId(null);
     }
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-900">Minhas inscrições</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-black tracking-tight text-white">
+          Minhas inscrições
+        </h1>
 
-      {isLoading && <p className="mt-6 text-gray-500">Carregando...</p>}
-      {error && <p className="mt-4 text-red-600">{error}</p>}
-
-      {!isLoading && entries.length === 0 && (
-        <p className="mt-6 text-gray-500">
-          Você ainda não se inscreveu em nenhum torneio.{" "}
-          <Link to="/torneios" className="text-green-700 hover:underline">
-            Ver torneios disponíveis
-          </Link>
+        <p className="mt-2 text-slate-300">
+          Gerencie todas as suas inscrições em torneios.
         </p>
+      </div>
+
+      {isLoading && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-300">
+          Carregando...
+        </div>
       )}
 
-      <ul className="mt-6 flex flex-col gap-3">
+      {error && (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
+          {error}
+        </div>
+      )}
+
+      {!isLoading && entries.length === 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-10 text-center">
+          <p className="text-slate-300">
+            Você ainda não se inscreveu em nenhum torneio.
+          </p>
+
+          <Link
+            to="/torneios"
+            className="mt-5 inline-flex rounded-xl bg-emerald-500 px-6 py-3 font-semibold text-white transition hover:bg-emerald-400"
+          >
+            Ver torneios disponíveis
+          </Link>
+        </div>
+      )}
+
+      <div className="space-y-4">
         {entries.map((entry) => (
-          <li key={`${entry.kind}-${entry.id}`} className="rounded-lg border border-gray-200 bg-white p-4">
-            <div className="flex items-start justify-between">
+          <div
+            key={`${entry.kind}-${entry.id}`}
+            className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 transition-all hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
+          >
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <Link to={`/torneios/${entry.tournamentId}`} className="font-semibold text-gray-900 hover:underline">
+                <Link
+                  to={`/torneios/${entry.tournamentId}`}
+                  className="text-xl font-bold text-white transition hover:text-emerald-400"
+                >
                   {entry.tournamentName}
                 </Link>
-                <p className="text-sm text-gray-600">
-                  {new Date(entry.eventDate).toLocaleDateString("pt-BR")} · {entry.label}
+
+                <p className="mt-2 text-slate-300">
+                  📅 {new Date(entry.eventDate).toLocaleDateString("pt-BR")}
                 </p>
+
+                <p className="mt-1 text-slate-400">🏐 {entry.label}</p>
               </div>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASSES[entry.status]}`}>
+
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${STATUS_BADGE_CLASSES[entry.status]}`}
+              >
                 {STATUS_LABELS[entry.status]}
               </span>
             </div>
 
             {CANCELLABLE_STATUSES.includes(entry.status) && (
-              <button
-                onClick={() => handleCancel(entry)}
-                disabled={cancellingId === entry.id}
-                className="mt-3 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-              >
-                {cancellingId === entry.id ? "Cancelando..." : "Cancelar inscrição"}
-              </button>
+              <div className="mt-6 border-t border-slate-800 pt-5">
+                <button
+                  onClick={() => handleCancel(entry)}
+                  disabled={cancellingId === entry.id}
+                  className="rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-2 font-medium text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {cancellingId === entry.id
+                    ? "Cancelando..."
+                    : "Cancelar inscrição"}
+                </button>
+              </div>
             )}
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

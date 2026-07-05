@@ -2,12 +2,19 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { listTournaments } from "../../../api/tournaments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
-import { formatLabel, statusLabel, statusBadgeClasses } from "../../../shared/utils/tournamentLabels";
+import {
+  formatLabel,
+  statusLabel,
+  statusBadgeClasses,
+} from "../../../shared/utils/tournamentLabels";
 import type { Tournament, TournamentStatus } from "../../../types/api.types";
 
 const PAGE_SIZE = 10;
 
-const STATUS_FILTER_OPTIONS: Array<{ value: TournamentStatus | ""; label: string }> = [
+const STATUS_FILTER_OPTIONS: Array<{
+  value: TournamentStatus | "";
+  label: string;
+}> = [
   { value: "", label: "Todos os status" },
   { value: "PUBLISHED", label: "Inscrições abertas" },
   { value: "REGISTRATIONS_CLOSED", label: "Inscrições encerradas" },
@@ -30,6 +37,7 @@ export function TournamentListPage() {
     async function fetchTournaments() {
       setIsLoading(true);
       setError(null);
+
       try {
         const result = await listTournaments({
           page,
@@ -37,13 +45,16 @@ export function TournamentListPage() {
           status: statusFilter || undefined,
           category: categoryFilter || undefined,
         });
+
         if (!isCancelled) {
           setTournaments(result.data);
           setTotalPages(result.meta.totalPages);
         }
       } catch (err) {
         if (!isCancelled) {
-          setError(getApiErrorMessage(err, "Não foi possível carregar os torneios."));
+          setError(
+            getApiErrorMessage(err, "Não foi possível carregar os torneios."),
+          );
         }
       } finally {
         if (!isCancelled) {
@@ -53,32 +64,43 @@ export function TournamentListPage() {
     }
 
     fetchTournaments();
+
     return () => {
       isCancelled = true;
     };
   }, [page, statusFilter, categoryFilter]);
 
   function handleFilterChange() {
-    // Any filter change resets pagination back to the first page,
-    // otherwise the user could land on an out-of-range page.
     setPage(1);
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-semibold text-gray-900">Torneios</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-black tracking-tight text-white">
+          Torneios
+        </h1>
 
-      <div className="mt-4 flex flex-wrap gap-3">
+        <p className="mt-2 text-slate-300">
+          Encontre o próximo torneio e faça sua inscrição.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-4">
         <select
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value as TournamentStatus | "");
             handleFilterChange();
           }}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
         >
           {STATUS_FILTER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
+            <option
+              key={option.value}
+              value={option.value}
+              className="bg-slate-900"
+            >
               {option.label}
             </option>
           ))}
@@ -92,57 +114,79 @@ export function TournamentListPage() {
             setCategoryFilter(e.target.value);
             handleFilterChange();
           }}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-emerald-400"
         />
       </div>
 
-      {isLoading && <p className="mt-6 text-gray-500">Carregando torneios...</p>}
-      {error && <p className="mt-6 text-red-600">{error}</p>}
+      {isLoading && <p className="text-slate-300">Carregando torneios...</p>}
+
+      {error && <p className="font-medium text-red-400">{error}</p>}
 
       {!isLoading && !error && tournaments.length === 0 && (
-        <p className="mt-6 text-gray-500">Nenhum torneio encontrado com esses filtros.</p>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-400">
+          Nenhum torneio encontrado com esses filtros.
+        </div>
       )}
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         {tournaments.map((tournament) => (
           <Link
             key={tournament.id}
             to={`/torneios/${tournament.id}`}
-            className="rounded-lg border border-gray-200 bg-white p-4 hover:border-green-600"
+            className="group rounded-2xl border border-slate-800 bg-slate-900/70 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/40 hover:bg-slate-900 hover:shadow-xl hover:shadow-emerald-500/10"
           >
-            <div className="flex items-start justify-between">
-              <h2 className="font-semibold text-gray-900">{tournament.name}</h2>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClasses(tournament.status)}`}>
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
+                {tournament.name}
+              </h2>
+
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(
+                  tournament.status,
+                )}`}
+              >
                 {statusLabel(tournament.status)}
               </span>
             </div>
-            <p className="mt-1 text-sm text-gray-600">{tournament.location}</p>
-            <p className="text-sm text-gray-600">
-              {new Date(tournament.eventDate).toLocaleDateString("pt-BR")} · {tournament.category}
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              {formatLabel(tournament.format)} · R$ {tournament.entryFee}
-            </p>
+
+            <div className="mt-4 space-y-2 text-sm">
+              <p className="text-slate-300">📍 {tournament.location}</p>
+
+              <p className="text-slate-300">
+                📅 {new Date(tournament.eventDate).toLocaleDateString("pt-BR")}{" "}
+                • {tournament.category}
+              </p>
+
+              <p className="text-slate-400">
+                🏐 {formatLabel(tournament.format)} •{" "}
+                <span className="font-semibold text-emerald-400">
+                  R$ {tournament.entryFee}
+                </span>
+              </p>
+            </div>
           </Link>
         ))}
       </div>
 
       {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-5 pt-4">
           <button
             onClick={() => setPage((p) => Math.max(p - 1, 1))}
             disabled={page === 1}
-            className="rounded-md border border-gray-300 px-3 py-1 text-sm disabled:opacity-40"
+            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Anterior
           </button>
-          <span className="text-sm text-gray-600">
-            Página {page} de {totalPages}
+
+          <span className="text-sm font-medium text-slate-300">
+            Página <span className="text-white">{page}</span> de{" "}
+            <span className="text-white">{totalPages}</span>
           </span>
+
           <button
             onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
             disabled={page === totalPages}
-            className="rounded-md border border-gray-300 px-3 py-1 text-sm disabled:opacity-40"
+            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Próxima
           </button>
