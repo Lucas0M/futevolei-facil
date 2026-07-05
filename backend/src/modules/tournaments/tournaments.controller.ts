@@ -28,12 +28,12 @@ export async function listTournamentsHandler(req: Request, res: Response) {
   const query = listTournamentsQuerySchema.parse(req.query);
   const result = await tournamentsService.listTournaments({
     ...query,
-    requesterRole: req.user!.role,
+    requesterRole: req.user?.role ?? "PLAYER",
   });
   res.status(200).json(result);
 }
 
 export async function getTournamentDetailHandler(req: Request, res: Response) {
-  const tournament = await tournamentsService.getTournamentDetail(req.params.id, req.user!.role);
+  const tournament = await tournamentsService.getTournamentDetail(req.params.id, req.user?.role ?? "PLAYER");
   res.status(200).json(tournament);
 }

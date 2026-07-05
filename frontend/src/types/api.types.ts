@@ -41,6 +41,30 @@ export interface PaginatedResult<T> {
   meta: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
+export type RegistrationStatus = "PENDING_PAYMENT" | "CONFIRMED" | "CANCELLED" | "EXPIRED" | "REFUNDED";
+
+export interface Registration {
+  id: string;
+  tournamentId: string;
+  userId: string;
+  status: RegistrationStatus;
+  amountDue: string;
+  reservedUntil: string | null;
+  tournament?: { id: string; name: string; eventDate: string; format: TournamentFormat };
+}
+
+export interface Team {
+  id: string;
+  tournamentId: string;
+  ownerUserId: string;
+  partnerName: string;
+  status: RegistrationStatus;
+  amountDue: string;
+  reservedUntil: string | null;
+  tournament?: { id: string; name: string; eventDate: string; format: TournamentFormat };
+}
+
+
 // Standard error shape returned by the backend (see errorHandler.ts)
 export interface ApiErrorResponse {
   error: {

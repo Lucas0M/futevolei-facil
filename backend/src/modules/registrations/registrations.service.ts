@@ -63,6 +63,20 @@ async function createIndividualRegistration(
 
     const reservedUntil = new Date(Date.now() + tournament.reservationTtlMinutes * 60 * 1000);
 
+    // A CANCELLED/EXPIRED row for this (tournament, user) pair already exists
+    // due to the unique constraint - reuse and reset it instead of inserting
+    // a new row, which would violate that same constraint.
+    if (existing) {
+      return tx.registration.update({
+        where: { id: existing.id },
+        data: {
+          amountDue: tournament.entryFee,
+          status: RegistrationStatus.PENDING_PAYMENT,
+          reservedUntil,
+        },
+      });
+    }
+
     return tx.registration.create({
       data: {
         tournamentId: tournament.id,
@@ -117,6 +131,20 @@ async function createTeamRegistration(
     }
 
     const reservedUntil = new Date(Date.now() + tournament.reservationTtlMinutes * 60 * 1000);
+
+    // Same reasoning as in createIndividualRegistration: reuse the existing
+    // CANCELLED/EXPIRED row instead of inserting a new one (unique constraint).
+    if (existing) {
+      return tx.team.update({
+        where: { id: existing.id },
+        data: {
+          partnerName: input.partnerName,
+          amountDue: tournament.entryFee,
+          status: TeamRegistrationStatus.PENDING_PAYMENT,
+          reservedUntil,
+        },
+      });
+    }
 
     return tx.team.create({
       data: {

@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { getApiErrorMessage } from "../../../api/httpClient";
 
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/torneios";
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,7 +22,7 @@ export function RegisterPage() {
     setIsSubmitting(true);
     try {
       await register({ name, email, password, phone: phone || undefined });
-      navigate("/torneios");
+      navigate(redirectTo);
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível criar sua conta."));
     } finally {
@@ -102,7 +104,7 @@ export function RegisterPage() {
 
       <p className="mt-4 text-sm text-gray-600">
         Já tem conta?{" "}
-        <Link to="/login" className="font-medium text-green-700 hover:underline">
+        <Link to={`/login?redirect=${encodeURIComponent(redirectTo)}`} className="font-medium text-green-700 hover:underline">
           Entrar
         </Link>
       </p>

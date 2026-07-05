@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getTournamentDetail } from "../../../api/tournaments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import { formatLabel, slotsUnitLabel, statusLabel, statusBadgeClasses } from "../../../shared/utils/tournamentLabels";
+import { RegistrationActionCard } from "../components/RegistrationActionCard";
 import type { TournamentDetail } from "../../../types/api.types";
 
 export function TournamentDetailPage() {
@@ -12,35 +13,23 @@ export function TournamentDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchDetail = useCallback(async () => {
     if (!id) return;
-
-    let isCancelled = false;
-
-    async function fetchDetail() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const result = await getTournamentDetail(id!);
-        if (!isCancelled) {
-          setTournament(result);
-        }
-      } catch (err) {
-        if (!isCancelled) {
-          setError(getApiErrorMessage(err, "Não foi possível carregar este torneio."));
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoading(false);
-        }
-      }
+    setError(null);
+    try {
+      const result = await getTournamentDetail(id);
+      setTournament(result);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível carregar este torneio."));
+    } finally {
+      setIsLoading(false);
     }
-
-    fetchDetail();
-    return () => {
-      isCancelled = true;
-    };
   }, [id]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchDetail();
+  }, [fetchDetail]);
 
   if (isLoading) {
     return <p className="text-gray-500">Carregando torneio...</p>;
@@ -121,7 +110,8 @@ export function TournamentDetailPage() {
         </div>
       </dl>
 
-      {/* Registration action button/form comes in the next step of the roadmap. */}
+      {/* Registration action: register (individual/team) or cancel, depending on current state. */}
+      <RegistrationActionCard tournament={tournament} onRegistrationChanged={fetchDetail} />
 
       <div className="mt-6">
         <h2 className="text-lg font-semibold text-gray-900">Inscritos</h2>

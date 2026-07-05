@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { getApiErrorMessage } from "../../../api/httpClient";
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/torneios";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +20,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login({ email, password });
-      navigate("/torneios");
+      navigate(redirectTo);
     } catch (err) {
       setError(getApiErrorMessage(err, "E-mail ou senha inválidos."));
     } finally {
@@ -72,7 +74,7 @@ export function LoginPage() {
 
       <p className="mt-4 text-sm text-gray-600">
         Ainda não tem conta?{" "}
-        <Link to="/registro" className="font-medium text-green-700 hover:underline">
+        <Link to={`/registro?redirect=${encodeURIComponent(redirectTo)}`} className="font-medium text-green-700 hover:underline">
           Cadastre-se
         </Link>
       </p>
