@@ -4,6 +4,7 @@ import {
   adminCancelRegistrationHandler,
   listMyRegistrationsHandler,
 } from "./registrations.controller";
+import { confirmRegistrationPaymentHandler } from "../payments/payments.controller";
 import { authenticate } from "../../shared/middlewares/authenticate";
 import { authorize } from "../../shared/middlewares/authorize";
 import { asyncHandler } from "../../shared/utils/asyncHandler";
@@ -22,4 +23,12 @@ registrationsRoutes.delete(
   authenticate,
   authorize("ADMIN"),
   asyncHandler(adminCancelRegistrationHandler)
+);
+
+// RF16 - admin manually confirms payment made outside the platform
+registrationsRoutes.post(
+  "/:id/confirm-payment",
+  authenticate,
+  authorize("ADMIN"),
+  asyncHandler(confirmRegistrationPaymentHandler)
 );

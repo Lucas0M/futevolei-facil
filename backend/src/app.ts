@@ -8,6 +8,7 @@ import { tournamentsRoutes } from "./modules/tournaments/tournaments.routes";
 import { tournamentRegistrationsRoutes } from "./modules/registrations/tournamentRegistrations.routes";
 import { registrationsRoutes } from "./modules/registrations/registrations.routes";
 import { teamsRoutes } from "./modules/registrations/teams.routes";
+import { paymentsRoutes } from "./modules/payments/payments.routes";
 
 export function createApp() {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp() {
   app.use("/api/tournaments", tournamentRegistrationsRoutes);
   app.use("/api/registrations", registrationsRoutes);
   app.use("/api/teams", teamsRoutes);
+  app.use("/api/payments", paymentsRoutes);
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);
