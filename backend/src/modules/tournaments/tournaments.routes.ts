@@ -6,6 +6,7 @@ import {
   publishTournamentHandler,
   listTournamentsHandler,
   getTournamentDetailHandler,
+  exportTournamentRegistrantsHandler,
 } from "./tournaments.controller";
 import { authenticate } from "../../shared/middlewares/authenticate";
 import { optionalAuthenticate } from "../../shared/middlewares/optionalAuthenticate";
@@ -24,3 +25,11 @@ tournamentsRoutes.post("/", authenticate, authorize("ADMIN"), asyncHandler(creat
 tournamentsRoutes.patch("/:id", authenticate, authorize("ADMIN"), asyncHandler(updateTournamentHandler));
 tournamentsRoutes.post("/:id/publish", authenticate, authorize("ADMIN"), asyncHandler(publishTournamentHandler));
 tournamentsRoutes.delete("/:id", authenticate, authorize("ADMIN"), asyncHandler(cancelTournamentHandler));
+
+// RF21 - admin exports the registrant list as CSV (for check-in / bracket draw on event day)
+tournamentsRoutes.get(
+  "/:id/export",
+  authenticate,
+  authorize("ADMIN"),
+  asyncHandler(exportTournamentRegistrantsHandler)
+);

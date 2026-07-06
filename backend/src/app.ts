@@ -9,6 +9,7 @@ import { tournamentRegistrationsRoutes } from "./modules/registrations/tournamen
 import { registrationsRoutes } from "./modules/registrations/registrations.routes";
 import { teamsRoutes } from "./modules/registrations/teams.routes";
 import { paymentsRoutes } from "./modules/payments/payments.routes";
+import { dashboardRoutes } from "./modules/dashboard/dashboard.routes";
 
 export function createApp() {
   const app = express();
@@ -29,6 +30,7 @@ export function createApp() {
   app.use("/api/registrations", registrationsRoutes);
   app.use("/api/teams", teamsRoutes);
   app.use("/api/payments", paymentsRoutes);
+  app.use("/api/admin/dashboard", dashboardRoutes);
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);
