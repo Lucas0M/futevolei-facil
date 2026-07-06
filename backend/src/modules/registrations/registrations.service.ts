@@ -206,6 +206,7 @@ export async function cancelOwnRegistration(registrationId: string, userId: stri
     throw new AppError("Você não pode cancelar uma inscrição que não é sua.", 403, "FORBIDDEN");
   }
 
+  assertNotYetConfirmed(registration.status);
   assertWithinCancellationWindow(registration.tournament.eventDate, registration.tournament.cancellationDeadlineHours);
 
   return prisma.registration.update({
@@ -226,6 +227,7 @@ export async function cancelOwnTeam(teamId: string, userId: string) {
     throw new AppError("Você não pode cancelar uma inscrição que não é sua.", 403, "FORBIDDEN");
   }
 
+  assertNotYetConfirmed(team.status);
   assertWithinCancellationWindow(team.tournament.eventDate, team.tournament.cancellationDeadlineHours);
 
   // Cancels the whole pair at once - the partner has no account to manage this themselves.
@@ -233,6 +235,16 @@ export async function cancelOwnTeam(teamId: string, userId: string) {
     where: { id: teamId },
     data: { status: "CANCELLED" },
   });
+}
+
+function assertNotYetConfirmed(status: string) {
+  if (status === "CONFIRMED") {
+    throw new AppError(
+      "Sua inscrição já está confirmada e paga. Para cancelar, entre em contato diretamente com o organizador.",
+      400,
+      "CANNOT_SELF_CANCEL_CONFIRMED"
+    );
+  }
 }
 
 function assertWithinCancellationWindow(eventDate: Date, cancellationDeadlineHours: number) {

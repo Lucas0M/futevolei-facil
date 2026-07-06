@@ -25,21 +25,37 @@ export async function confirmRegistrationPayment(registrationId: string, adminId
       "INVALID_REGISTRATION_STATUS"
     );
   }
-  if (registration.payment) {
+  if (registration.payment?.status === "APPROVED") {
     throw new AppError("Já existe um pagamento registrado para esta inscrição.", 409, "PAYMENT_ALREADY_EXISTS");
   }
 
   return prisma.$transaction(async (tx) => {
-    await tx.payment.create({
-      data: {
-        registrationId: registration.id,
-        amount: registration.amountDue,
-        method: "MANUAL",
-        status: "APPROVED",
-        confirmedByAdminId: adminId,
-        paidAt: new Date(),
-      },
-    });
+    // Reuses a PENDING payment row left over from an abandoned/incomplete
+    // Mercado Pago checkout attempt, instead of creating a second row
+    // (Payment.registrationId is unique - only one payment ever exists per registration).
+    if (registration.payment) {
+      await tx.payment.update({
+        where: { id: registration.payment.id },
+        data: {
+          method: "MANUAL",
+          status: "APPROVED",
+          amount: registration.amountDue,
+          confirmedByAdminId: adminId,
+          paidAt: new Date(),
+        },
+      });
+    } else {
+      await tx.payment.create({
+        data: {
+          registrationId: registration.id,
+          amount: registration.amountDue,
+          method: "MANUAL",
+          status: "APPROVED",
+          confirmedByAdminId: adminId,
+          paidAt: new Date(),
+        },
+      });
+    }
 
     return tx.registration.update({
       where: { id: registration.id },
@@ -68,10 +84,10 @@ export async function confirmTeamPayment(teamId: string, input: ConfirmTeamPayme
   }
 
   const { portion } = input;
-  const existingPortions = team.payments.map((p) => p.teamPortion);
+  const approvedPortions = team.payments.filter((p) => p.status === "APPROVED").map((p) => p.teamPortion);
 
   if (portion === "FULL") {
-    if (existingPortions.length > 0) {
+    if (approvedPortions.length > 0) {
       throw new AppError(
         "Já existe pagamento parcial registrado para esta dupla. Confirme a parte que falta em vez de 'dupla inteira'.",
         409,
@@ -79,32 +95,49 @@ export async function confirmTeamPayment(teamId: string, input: ConfirmTeamPayme
       );
     }
   } else {
-    if (existingPortions.includes("FULL")) {
+    if (approvedPortions.includes("FULL")) {
       throw new AppError("O pagamento da dupla inteira já foi confirmado.", 409, "PAYMENT_ALREADY_EXISTS");
     }
-    if (existingPortions.includes(portion)) {
+    if (approvedPortions.includes(portion)) {
       throw new AppError("Esta parte do pagamento já foi confirmada.", 409, "PAYMENT_ALREADY_EXISTS");
     }
   }
 
   const amount = portion === "FULL" ? team.amountDue : (team.amountDue as Prisma.Decimal).div(2);
+  const existingPayment = team.payments.find((p) => p.teamPortion === portion);
 
   return prisma.$transaction(async (tx) => {
-    await tx.payment.create({
-      data: {
-        teamId: team.id,
-        teamPortion: portion,
-        amount,
-        method: "MANUAL",
-        status: "APPROVED",
-        confirmedByAdminId: adminId,
-        paidAt: new Date(),
-      },
-    });
+    // Reuses a PENDING payment row left over from an abandoned/incomplete
+    // Mercado Pago checkout attempt for this exact portion, instead of
+    // creating a duplicate (Payment has a unique constraint on [teamId, teamPortion]).
+    if (existingPayment) {
+      await tx.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          method: "MANUAL",
+          status: "APPROVED",
+          amount,
+          confirmedByAdminId: adminId,
+          paidAt: new Date(),
+        },
+      });
+    } else {
+      await tx.payment.create({
+        data: {
+          teamId: team.id,
+          teamPortion: portion,
+          amount,
+          method: "MANUAL",
+          status: "APPROVED",
+          confirmedByAdminId: adminId,
+          paidAt: new Date(),
+        },
+      });
+    }
 
     // RN02 - a team is only CONFIRMED when both shares (or the full amount) are paid.
     const isFullyPaid =
-      portion === "FULL" || existingPortions.includes(portion === "OWNER_SHARE" ? "PARTNER_SHARE" : "OWNER_SHARE");
+      portion === "FULL" || approvedPortions.includes(portion === "OWNER_SHARE" ? "PARTNER_SHARE" : "OWNER_SHARE");
 
     return tx.team.update({
       where: { id: team.id },
