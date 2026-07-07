@@ -3,10 +3,10 @@ import * as registrationsService from "./registrations.service";
 import { createTeamRegistrationSchema, updateTeamPartnerSchema } from "./registrations.schema";
 
 export async function createRegistrationHandler(req: Request, res: Response) {
-  // partnerName is only required for DUO_FIXED tournaments; the service
-  // decides whether it's needed based on the tournament's format.
+  // partnerName is only required for DUO_FIXED categories; the service
+  // decides whether it's needed based on the category's format.
   const parsed = createTeamRegistrationSchema.partial().parse(req.body ?? {});
-  const registration = await registrationsService.createRegistration(req.params.tournamentId, req.user!.id, parsed);
+  const registration = await registrationsService.createRegistration(req.params.categoryId, req.user!.id, parsed);
   res.status(201).json(registration);
 }
 

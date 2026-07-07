@@ -1,11 +1,10 @@
 import { prisma } from "../../prisma/client";
 
-// RF20 - aggregated metrics for the admin dashboard. Since there is no admin
-// hierarchy (decision already made), these numbers cover the WHOLE platform,
-// not just tournaments created by the requesting admin.
+// RF20 - aggregated metrics for the admin dashboard. Covers the WHOLE
+// platform, since there is no admin hierarchy.
 export async function getDashboardSummary() {
   const [
-    activeTournaments,
+    activeCategories,
     confirmedRegistrationsCount,
     confirmedTeamsCount,
     confirmedRevenueAgg,
@@ -14,22 +13,23 @@ export async function getDashboardSummary() {
     pendingRegistrations,
     pendingTeams,
   ] = await prisma.$transaction([
-    prisma.tournament.count({ where: { status: "PUBLISHED" } }),
+    prisma.category.count({ where: { status: "PUBLISHED" } }),
     prisma.registration.count({ where: { status: "CONFIRMED" } }),
     prisma.team.count({ where: { status: "CONFIRMED" } }),
     prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "APPROVED" } }),
     prisma.registration.aggregate({ _sum: { amountDue: true }, where: { status: "PENDING_PAYMENT" } }),
     prisma.team.aggregate({ _sum: { amountDue: true }, where: { status: "PENDING_PAYMENT" } }),
-    // RF20 - "lista de inscrições aguardando confirmação manual": every
-    // PENDING_PAYMENT entry is a candidate the admin might confirm manually.
     prisma.registration.findMany({
       where: { status: "PENDING_PAYMENT" },
-      include: { user: { select: { name: true } }, tournament: { select: { name: true } } },
+      include: { user: { select: { name: true } }, category: { select: { name: true, tournament: { select: { name: true } } } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.team.findMany({
       where: { status: "PENDING_PAYMENT" },
-      include: { ownerUser: { select: { name: true } }, tournament: { select: { name: true } } },
+      include: {
+        ownerUser: { select: { name: true } },
+        category: { select: { name: true, tournament: { select: { name: true } } } },
+      },
       orderBy: { createdAt: "asc" },
     }),
   ]);
@@ -42,7 +42,7 @@ export async function getDashboardSummary() {
     ...pendingRegistrations.map((r) => ({
       kind: "registration" as const,
       id: r.id,
-      tournamentName: r.tournament.name,
+      tournamentName: `${r.category.tournament.name} - ${r.category.name}`,
       playerName: r.user.name,
       amountDue: r.amountDue,
       createdAt: r.createdAt,
@@ -50,7 +50,7 @@ export async function getDashboardSummary() {
     ...pendingTeams.map((t) => ({
       kind: "team" as const,
       id: t.id,
-      tournamentName: t.tournament.name,
+      tournamentName: `${t.category.tournament.name} - ${t.category.name}`,
       playerName: `${t.ownerUser.name} + ${t.partnerName}`,
       amountDue: t.amountDue,
       createdAt: t.createdAt,
@@ -58,10 +58,9 @@ export async function getDashboardSummary() {
   ].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
   return {
-    activeTournaments,
+    activeCategories,
     confirmedEntriesCount: confirmedRegistrationsCount + confirmedTeamsCount,
     confirmedRevenue,
-    // Total money still expected to come in from entries that haven't paid yet.
     pendingRevenue: Number(pendingRevenue) + Number(pendingTeamRevenue),
     pendingConfirmations,
   };

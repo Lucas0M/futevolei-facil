@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import * as tournamentsService from "./tournaments.service";
-import * as tournamentExportService from "./tournamentExport.service";
 import { createTournamentSchema, updateTournamentSchema, listTournamentsQuerySchema } from "./tournaments.schema";
 
 export async function createTournamentHandler(req: Request, res: Response) {
@@ -27,21 +26,11 @@ export async function publishTournamentHandler(req: Request, res: Response) {
 
 export async function listTournamentsHandler(req: Request, res: Response) {
   const query = listTournamentsQuerySchema.parse(req.query);
-  const result = await tournamentsService.listTournaments({
-    ...query,
-    requesterRole: req.user?.role ?? "PLAYER",
-  });
+  const result = await tournamentsService.listTournaments({ ...query, requesterRole: req.user?.role ?? "PLAYER" });
   res.status(200).json(result);
 }
 
 export async function getTournamentDetailHandler(req: Request, res: Response) {
   const tournament = await tournamentsService.getTournamentDetail(req.params.id, req.user?.role ?? "PLAYER");
   res.status(200).json(tournament);
-}
-
-export async function exportTournamentRegistrantsHandler(req: Request, res: Response) {
-  const csv = await tournamentExportService.exportTournamentRegistrantsCsv(req.params.id);
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="inscritos-${req.params.id}.csv"`);
-  res.status(200).send(csv);
 }
