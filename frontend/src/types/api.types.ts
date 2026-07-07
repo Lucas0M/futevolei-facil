@@ -41,7 +41,23 @@ export interface PaginatedResult<T> {
   meta: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
-export type RegistrationStatus = "PENDING_PAYMENT" | "CONFIRMED" | "CANCELLED" | "EXPIRED" | "REFUNDED";
+export interface PendingConfirmationEntry {
+  kind: "registration" | "team";
+  id: string;
+  tournamentName: string;
+  playerName: string;
+  amountDue: string;
+  createdAt: string;
+}
+
+export interface DashboardSummary {
+  activeTournaments: number;
+  confirmedEntriesCount: number;
+  confirmedRevenue: string;
+  pendingRevenue: number;
+  pendingConfirmations: PendingConfirmationEntry[];
+}
+
 
 export interface Registration {
   id: string;

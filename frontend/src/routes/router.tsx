@@ -1,12 +1,14 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "../shared/layouts/AppLayout";
 import { RequireAuth } from "../shared/guards/RequireAuth";
+import { RequireAdmin } from "../shared/guards/RequireAdmin";
 import { HomePage } from "../features/home/pages/HomePage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { TournamentListPage } from "../features/tournaments/pages/TournamentListPage";
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
 import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrationsPage";
+import { DashboardPage } from "../features/admin/pages/DashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +26,12 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [{ path: "minhas-inscricoes", element: <MyRegistrationsPage /> }],
+      },
+
+      // Admin-only routes.
+      {
+        element: <RequireAdmin />,
+        children: [{ path: "admin", element: <DashboardPage /> }],
       },
     ],
   },

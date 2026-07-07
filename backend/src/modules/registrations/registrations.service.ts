@@ -67,6 +67,11 @@ async function createIndividualRegistration(
     // due to the unique constraint - reuse and reset it instead of inserting
     // a new row, which would violate that same constraint.
     if (existing) {
+      // Clear out any payment from the row's previous life (e.g. an old
+      // APPROVED payment from a prior confirmed-then-cancelled cycle) -
+      // otherwise it would incorrectly block/skip the new payment flow.
+      await tx.payment.deleteMany({ where: { registrationId: existing.id } });
+
       return tx.registration.update({
         where: { id: existing.id },
         data: {
@@ -135,6 +140,12 @@ async function createTeamRegistration(
     // Same reasoning as in createIndividualRegistration: reuse the existing
     // CANCELLED/EXPIRED row instead of inserting a new one (unique constraint).
     if (existing) {
+      // Clear out any payment(s) from the team's previous life - e.g. an old
+      // APPROVED FULL/OWNER_SHARE/PARTNER_SHARE payment from a prior
+      // confirmed-then-cancelled cycle - otherwise they'd incorrectly block
+      // the new payment flow for this reused team.
+      await tx.payment.deleteMany({ where: { teamId: existing.id } });
+
       return tx.team.update({
         where: { id: existing.id },
         data: {
