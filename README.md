@@ -1,4 +1,4 @@
-# futevolei-facil
+# ares-futevolei
 
 Futevôlei Fácil é uma plataforma web desenvolvida para simplificar a organização de
 torneios de futevôlei. O sistema permite divulgar campeonatos, gerenciar inscrições
