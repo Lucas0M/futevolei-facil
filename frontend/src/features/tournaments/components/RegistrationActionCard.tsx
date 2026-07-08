@@ -6,7 +6,11 @@ import {
   cancelTeam,
 } from "../../../api/registrations.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
-import type { TournamentDetail, Registration, Team } from "../../../type";
+import type {
+  TournamentDetailCategory,
+  Registration,
+  Team,
+} from "../../../types/api.types";
 
 interface MyEntry {
   kind: "registration" | "team";
@@ -28,12 +32,12 @@ const STATUS_LABELS: Record<Registration["status"], string> = {
 };
 
 interface Props {
-  tournament: TournamentDetail;
+  category: TournamentDetailCategory;
   onRegistrationChanged: () => void;
 }
 
 export function RegistrationActionCard({
-  tournament,
+  category,
   onRegistrationChanged,
 }: Props) {
   const [myEntry, setMyEntry] = useState<MyEntry | null>(null);
@@ -54,13 +58,13 @@ export function RegistrationActionCard({
 
         const registration = registrations.find(
           (r) =>
-            r.tournamentId === tournament.id &&
+            r.category?.id === category.id &&
             ACTIVE_STATUSES.includes(r.status),
         );
 
         const team = teams.find(
           (t) =>
-            t.tournamentId === tournament.id &&
+            t.category?.id === category.id &&
             ACTIVE_STATUSES.includes(t.status),
         );
 
@@ -94,7 +98,7 @@ export function RegistrationActionCard({
     return () => {
       isCancelled = true;
     };
-  }, [tournament.id]);
+  }, [category.id]);
 
   async function handleRegister() {
     setError(null);
@@ -102,14 +106,14 @@ export function RegistrationActionCard({
     setIsSubmitting(true);
 
     try {
-      const body = tournament.format === "DUO_FIXED" ? { partnerName } : {};
+      const body = category.format === "DUO_FIXED" ? { partnerName } : {};
 
-      const created = (await createRegistration(tournament.id, body)) as (
+      const created = (await createRegistration(category.id, body)) as (
         | Registration
         | Team
       ) & { id: string };
 
-      const kind = tournament.format === "DUO_FIXED" ? "team" : "registration";
+      const kind = category.format === "DUO_FIXED" ? "team" : "registration";
 
       setMyEntry({
         kind,
@@ -159,8 +163,8 @@ export function RegistrationActionCard({
   }
 
   const canRegister =
-    tournament.status === "PUBLISHED" &&
-    new Date(tournament.registrationDeadline) > new Date();
+    category.status === "PUBLISHED" &&
+    new Date(category.registrationDeadline) > new Date();
 
   return (
     <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/70 p-6 backdrop-blur">
@@ -179,7 +183,7 @@ export function RegistrationActionCard({
       {myEntry ? (
         <div>
           <p className="text-white font-medium">
-            Você já está inscrito neste torneio.
+            Você já está inscrito nesta categoria.
           </p>
 
           <p className="mt-1 text-slate-400">
@@ -196,9 +200,9 @@ export function RegistrationActionCard({
         </div>
       ) : !canRegister ? (
         <p className="text-slate-400">
-          As inscrições para este torneio não estão abertas no momento.
+          As inscrições para esta categoria não estão abertas no momento.
         </p>
-      ) : tournament.format === "DUO_FIXED" ? (
+      ) : category.format === "DUO_FIXED" ? (
         <div>
           <label
             htmlFor="partnerName"

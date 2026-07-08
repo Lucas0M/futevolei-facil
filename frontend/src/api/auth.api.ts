@@ -13,13 +13,25 @@ export interface LoginPayload {
   password: string;
 }
 
-export async function registerRequest(payload: RegisterPayload): Promise<AuthResponse> {
-  const { data } = await httpClient.post<AuthResponse>("/auth/register", payload);
+export async function registerRequest(
+  payload: RegisterPayload,
+): Promise<AuthResponse> {
+  const { data } = await httpClient.post<AuthResponse>(
+    "/auth/register",
+    payload,
+  );
   return data;
 }
 
-export async function loginRequest(payload: LoginPayload): Promise<AuthResponse> {
+export async function loginRequest(
+  payload: LoginPayload,
+): Promise<AuthResponse> {
   const { data } = await httpClient.post<AuthResponse>("/auth/login", payload);
+  return data;
+}
+
+export async function getCurrentUserRequest(): Promise<AuthResponse["user"]> {
+  const { data } = await httpClient.get<AuthResponse["user"]>("/users/me");
   return data;
 }
 

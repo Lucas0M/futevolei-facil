@@ -49,6 +49,15 @@ export function HomePage() {
             Explorar Torneios
           </Link>
 
+          {user?.role === "ADMIN" && (
+            <Link
+              to="/admin"
+              className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-8 py-4 font-semibold text-emerald-300 transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/60 hover:bg-emerald-500/20"
+            >
+              Abrir painel admin
+            </Link>
+          )}
+
           {!user && (
             <Link
               to="/login"

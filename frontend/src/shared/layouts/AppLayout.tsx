@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate } from "react-router-dom";
-import { Trophy, LogOut, Shield } from "lucide-react";
+import { LogOut, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export function AppLayout() {

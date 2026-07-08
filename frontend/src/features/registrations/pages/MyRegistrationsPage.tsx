@@ -57,25 +57,25 @@ export function MyRegistrationsPage() {
       const { registrations, teams } = await listMyRegistrations();
 
       const registrationEntries: UnifiedEntry[] = registrations
-        .filter((r) => r.tournament)
+        .filter((r) => r.category?.tournament)
         .map((r: Registration) => ({
           kind: "registration",
           id: r.id,
-          tournamentId: r.tournamentId,
-          tournamentName: r.tournament!.name,
-          eventDate: r.tournament!.eventDate,
+          tournamentId: r.category!.tournament.id,
+          tournamentName: r.category!.tournament.name,
+          eventDate: r.category!.tournament.eventDate,
           label: "Individual",
           status: r.status,
         }));
 
       const teamEntries: UnifiedEntry[] = teams
-        .filter((t) => t.tournament)
+        .filter((t) => t.category?.tournament)
         .map((t: Team) => ({
           kind: "team",
           id: t.id,
-          tournamentId: t.tournamentId,
-          tournamentName: t.tournament!.name,
-          eventDate: t.tournament!.eventDate,
+          tournamentId: t.category!.tournament.id,
+          tournamentName: t.category!.tournament.name,
+          eventDate: t.category!.tournament.eventDate,
           label: `Você + ${t.partnerName}`,
           status: t.status,
         }));

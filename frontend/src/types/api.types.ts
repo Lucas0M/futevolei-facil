@@ -1,5 +1,13 @@
 export type UserRole = "ADMIN" | "PLAYER";
 
+export type RegistrationStatus =
+  | "PENDING_PAYMENT"
+  | "CONFIRMED"
+  | "CANCELLED"
+  | "EXPIRED"
+  | "REFUNDED";
+export type TeamRegistrationStatus = RegistrationStatus;
+
 export interface User {
   id: string;
   name: string;
@@ -14,7 +22,12 @@ export interface AuthResponse {
 }
 
 export type TournamentFormat = "INDIVIDUAL" | "DUO_FIXED" | "DUO_RANDOM";
-export type TournamentStatus = "DRAFT" | "PUBLISHED" | "REGISTRATIONS_CLOSED" | "CANCELLED" | "FINISHED";
+export type TournamentStatus =
+  | "DRAFT"
+  | "PUBLISHED"
+  | "REGISTRATIONS_CLOSED"
+  | "CANCELLED"
+  | "FINISHED";
 
 export interface Tournament {
   id: string;
@@ -22,18 +35,48 @@ export interface Tournament {
   description: string | null;
   eventDate: string;
   location: string;
-  category: string;
+  status: TournamentStatus;
+  category?: string;
+  format?: TournamentFormat;
+  entryFee?: string;
+  maxSlots?: number;
+  registrationDeadline?: string;
+}
+
+export interface TournamentDetailCategory {
+  id: string;
+  name: string;
   format: TournamentFormat;
   entryFee: string;
   maxSlots: number;
-  registrationDeadline: string;
-  status: TournamentStatus;
-}
-
-export interface TournamentDetail extends Tournament {
   occupiedSlots: number;
   availableSlots: number;
-  registrants: Array<{ name?: string; ownerName?: string; partnerName?: string; status: string }>;
+  registrationDeadline: string;
+  status: TournamentStatus;
+  registrants?: CategoryDetailRegistrant[];
+}
+
+export interface CategoryDetailRegistrant {
+  kind: "registration" | "team";
+  id: string;
+  name?: string;
+  ownerName?: string;
+  partnerName?: string;
+  status: RegistrationStatus | TeamRegistrationStatus;
+}
+
+export interface TournamentDetail extends Omit<
+  Tournament,
+  "category" | "format" | "entryFee" | "maxSlots" | "registrationDeadline"
+> {
+  categories: TournamentDetailCategory[];
+}
+
+export interface TournamentFormInput {
+  name: string;
+  description: string;
+  eventDate: string;
+  location: string;
 }
 
 export interface PaginatedResult<T> {
@@ -56,30 +99,78 @@ export interface DashboardSummary {
   confirmedRevenue: string;
   pendingRevenue: number;
   pendingConfirmations: PendingConfirmationEntry[];
+  bracketCandidates: BracketCandidate[];
 }
 
+export interface BracketCandidate {
+  id: string;
+  tournamentName: string;
+  tournamentDate: string;
+  categoryName: string;
+  format: TournamentFormat;
+  status: TournamentStatus;
+  confirmedEntriesCount: number;
+  isReady: boolean;
+}
+
+export interface GeneratedBracketParticipant {
+  id: string;
+  name: string;
+  registeredAt: string;
+}
+
+export interface GeneratedBracketMatch {
+  position: number;
+  competitorA: GeneratedBracketParticipant;
+  competitorB: GeneratedBracketParticipant | null;
+}
+
+export interface GeneratedBracket {
+  categoryId: string;
+  categoryName: string;
+  tournamentName: string;
+  format: TournamentFormat;
+  participantCount: number;
+  matches: GeneratedBracketMatch[];
+  byes: GeneratedBracketParticipant[];
+}
 
 export interface Registration {
   id: string;
-  tournamentId: string;
   userId: string;
   status: RegistrationStatus;
   amountDue: string;
   reservedUntil: string | null;
-  tournament?: { id: string; name: string; eventDate: string; format: TournamentFormat };
+  category?: {
+    id: string;
+    name: string;
+    format: TournamentFormat;
+    tournament: {
+      id: string;
+      name: string;
+      eventDate: string;
+    };
+  };
 }
 
 export interface Team {
   id: string;
-  tournamentId: string;
   ownerUserId: string;
   partnerName: string;
-  status: RegistrationStatus;
+  status: TeamRegistrationStatus;
   amountDue: string;
   reservedUntil: string | null;
-  tournament?: { id: string; name: string; eventDate: string; format: TournamentFormat };
+  category?: {
+    id: string;
+    name: string;
+    format: TournamentFormat;
+    tournament: {
+      id: string;
+      name: string;
+      eventDate: string;
+    };
+  };
 }
-
 
 // Standard error shape returned by the backend (see errorHandler.ts)
 export interface ApiErrorResponse {

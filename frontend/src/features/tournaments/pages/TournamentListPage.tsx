@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import { listTournaments } from "../../../api/tournaments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import {
-  formatLabel,
-  statusLabel,
   statusBadgeClasses,
+  statusLabel,
 } from "../../../shared/utils/tournamentLabels";
 import type { Tournament, TournamentStatus } from "../../../types/api.types";
 
@@ -23,6 +23,7 @@ const STATUS_FILTER_OPTIONS: Array<{
 ];
 
 export function TournamentListPage() {
+  const { user } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -76,14 +77,24 @@ export function TournamentListPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-black tracking-tight text-white">
-          Torneios
-        </h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-white">
+            Torneios
+          </h1>
+          <p className="mt-2 text-slate-300">
+            Encontre o próximo torneio e faça sua inscrição.
+          </p>
+        </div>
 
-        <p className="mt-2 text-slate-300">
-          Encontre o próximo torneio e faça sua inscrição.
-        </p>
+        {user?.role === "ADMIN" && (
+          <Link
+            to="/admin"
+            className="inline-flex items-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:border-emerald-400/60 hover:bg-emerald-500/20"
+          >
+            Abrir painel admin
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-4">
@@ -141,9 +152,7 @@ export function TournamentListPage() {
               </h2>
 
               <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(
-                  tournament.status,
-                )}`}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(tournament.status)}`}
               >
                 {statusLabel(tournament.status)}
               </span>
@@ -153,16 +162,12 @@ export function TournamentListPage() {
               <p className="text-slate-300">📍 {tournament.location}</p>
 
               <p className="text-slate-300">
-                📅 {new Date(tournament.eventDate).toLocaleDateString("pt-BR")}{" "}
-                • {tournament.category}
+                📅 {new Date(tournament.eventDate).toLocaleDateString("pt-BR")}
               </p>
 
-              <p className="text-slate-400">
-                🏐 {formatLabel(tournament.format)} •{" "}
-                <span className="font-semibold text-emerald-400">
-                  R$ {tournament.entryFee}
-                </span>
-              </p>
+              {tournament.description && (
+                <p className="text-slate-400">{tournament.description}</p>
+              )}
             </div>
           </Link>
         ))}

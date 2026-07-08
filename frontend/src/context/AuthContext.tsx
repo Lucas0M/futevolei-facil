@@ -1,5 +1,18 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { loginRequest, registerRequest, type LoginPayload, type RegisterPayload } from "../api/auth.api";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
+import {
+  getCurrentUserRequest,
+  loginRequest,
+  registerRequest,
+  type LoginPayload,
+  type RegisterPayload,
+} from "../api/auth.api";
 import type { User } from "../types/api.types";
 
 interface AuthContextValue {
@@ -22,12 +35,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem(STORAGE_USER_KEY);
     const storedToken = localStorage.getItem(STORAGE_TOKEN_KEY);
+
+    async function hydrateSession() {
+      if (!storedToken) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const currentUser = await getCurrentUserRequest();
+        localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(currentUser));
+        setUser(currentUser);
+      } catch {
+        localStorage.removeItem(STORAGE_USER_KEY);
+        localStorage.removeItem(STORAGE_TOKEN_KEY);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    const storedUser = localStorage.getItem(STORAGE_USER_KEY);
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
     }
-    setIsLoading(false);
+    hydrateSession();
   }, []);
 
   const persistSession = (nextUser: User, token: string) => {
@@ -53,7 +86,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
   );
 }
 
