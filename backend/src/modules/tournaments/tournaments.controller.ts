@@ -34,3 +34,8 @@ export async function getTournamentDetailHandler(req: Request, res: Response) {
   const tournament = await tournamentsService.getTournamentDetail(req.params.id, req.user?.role ?? "PLAYER");
   res.status(200).json(tournament);
 }
+
+export async function getTournamentPendingPaymentsHandler(req: Request, res: Response) {
+  const pendingPayments = await tournamentsService.getTournamentPendingPayments(req.params.id);
+  res.status(200).json(pendingPayments);
+}

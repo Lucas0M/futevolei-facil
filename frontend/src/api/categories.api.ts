@@ -35,6 +35,15 @@ export async function createCategory(
   return data;
 }
 
+export async function publishCategory(
+  categoryId: string,
+): Promise<TournamentDetailCategory> {
+  const { data } = await httpClient.post<TournamentDetailCategory>(
+    `/categories/${categoryId}/publish`,
+  );
+  return data;
+}
+
 export async function generateCategoryBracket(
   categoryId: string,
 ): Promise<GeneratedBracket> {

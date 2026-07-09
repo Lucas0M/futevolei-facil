@@ -7,7 +7,7 @@ import { CreateTeamRegistrationInput, UpdateTeamPartnerInput } from "./registrat
 // CREATE (RF10, RF11, RF14, RN01, RN03, RN08, RN09)
 // ---------------------------------------------------------------------------
 
-export async function createRegistration(categoryId: string, userId: string, body: { partnerName?: string }) {
+export async function createRegistration(categoryId: string, userId: string, userRole: string, body: { partnerName?: string, customOwnerName?: string, customPlayerName?: string }) {
   const category = await prisma.category.findUnique({ where: { id: categoryId } });
   if (!category) {
     throw new AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
@@ -19,15 +19,17 @@ export async function createRegistration(categoryId: string, userId: string, bod
     if (!body.partnerName) {
       throw new AppError("Nome do parceiro é obrigatório para esta categoria.", 422, "PARTNER_NAME_REQUIRED");
     }
-    return createTeamRegistration(category, userId, { partnerName: body.partnerName });
+    return createTeamRegistration(category, userId, userRole, { partnerName: body.partnerName, customOwnerName: body.customOwnerName });
   }
 
-  return createIndividualRegistration(category, userId);
+  return createIndividualRegistration(category, userId, userRole, { customPlayerName: body.customPlayerName });
 }
 
 async function createIndividualRegistration(
   category: { id: string; entryFee: Prisma.Decimal; maxSlots: number; reservationTtlMinutes: number },
-  userId: string
+  userId: string,
+  userRole: string,
+  input: { customPlayerName?: string }
 ) {
   const existing = await prisma.registration.findUnique({
     where: { categoryId_userId: { categoryId: category.id, userId } },
@@ -58,7 +60,12 @@ async function createIndividualRegistration(
 
       return tx.registration.update({
         where: { id: existing.id },
-        data: { amountDue: category.entryFee, status: RegistrationStatus.PENDING_PAYMENT, reservedUntil },
+        data: { 
+          amountDue: category.entryFee, 
+          status: RegistrationStatus.PENDING_PAYMENT, 
+          reservedUntil,
+          customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
+        },
       });
     }
 
@@ -69,6 +76,7 @@ async function createIndividualRegistration(
         amountDue: category.entryFee,
         status: RegistrationStatus.PENDING_PAYMENT,
         reservedUntil,
+        customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
       },
     });
   });
@@ -77,6 +85,7 @@ async function createIndividualRegistration(
 async function createTeamRegistration(
   category: { id: string; entryFee: Prisma.Decimal; maxSlots: number; reservationTtlMinutes: number },
   ownerUserId: string,
+  userRole: string,
   input: CreateTeamRegistrationInput
 ) {
   const owner = await prisma.user.findUnique({ where: { id: ownerUserId } });
@@ -84,7 +93,7 @@ async function createTeamRegistration(
     throw new AppError("Usuário não encontrado.", 404, "USER_NOT_FOUND");
   }
 
-  if (normalizeName(input.partnerName) === normalizeName(owner.name)) {
+  if (normalizeName(input.partnerName) === normalizeName(userRole === "ADMIN" && input.customOwnerName ? input.customOwnerName : owner.name)) {
     throw new AppError("O parceiro não pode ser você mesmo.", 422, "INVALID_PARTNER");
   }
 
@@ -120,6 +129,7 @@ async function createTeamRegistration(
           amountDue: category.entryFee,
           status: TeamRegistrationStatus.PENDING_PAYMENT,
           reservedUntil,
+          customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
         },
       });
     }
@@ -132,6 +142,7 @@ async function createTeamRegistration(
         amountDue: category.entryFee,
         status: TeamRegistrationStatus.PENDING_PAYMENT,
         reservedUntil,
+        customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
       },
     });
   });

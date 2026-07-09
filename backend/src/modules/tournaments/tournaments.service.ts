@@ -142,3 +142,57 @@ async function findTournamentOrThrow(tournamentId: string) {
   }
   return tournament;
 }
+
+export async function getTournamentPendingPayments(tournamentId: string) {
+  const tournament = await findTournamentOrThrow(tournamentId);
+
+  const [pendingRegistrations, pendingTeams] = await prisma.$transaction([
+    prisma.registration.findMany({
+      where: { 
+        status: "PENDING_PAYMENT",
+        category: { tournamentId }
+      },
+      include: {
+        user: { select: { name: true } },
+        category: {
+          select: { name: true, tournament: { select: { name: true } } },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.team.findMany({
+      where: { 
+        status: "PENDING_PAYMENT",
+        category: { tournamentId }
+      },
+      include: {
+        ownerUser: { select: { name: true } },
+        category: {
+          select: { name: true, tournament: { select: { name: true } } },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  const pendingConfirmations = [
+    ...pendingRegistrations.map((r) => ({
+      kind: "registration" as const,
+      id: r.id,
+      tournamentName: `${r.category.tournament.name} - ${r.category.name}`,
+      playerName: r.user.name,
+      amountDue: r.amountDue,
+      createdAt: r.createdAt,
+    })),
+    ...pendingTeams.map((t) => ({
+      kind: "team" as const,
+      id: t.id,
+      tournamentName: `${t.category.tournament.name} - ${t.category.name}`,
+      playerName: `${t.ownerUser.name} + ${t.partnerName}`,
+      amountDue: t.amountDue,
+      createdAt: t.createdAt,
+    })),
+  ].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+  return pendingConfirmations;
+}

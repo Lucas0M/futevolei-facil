@@ -5,6 +5,7 @@ import type {
   TournamentDetail,
   TournamentFormInput,
   TournamentStatus,
+  PendingConfirmationEntry,
 } from "../types/api.types";
 
 export interface ListTournamentsParams {
@@ -67,6 +68,15 @@ export async function publishTournament(
 ): Promise<Tournament> {
   const { data } = await httpClient.post<Tournament>(
     `/tournaments/${tournamentId}/publish`,
+  );
+  return data;
+}
+
+export async function getTournamentPendingPayments(
+  tournamentId: string,
+): Promise<PendingConfirmationEntry[]> {
+  const { data } = await httpClient.get<PendingConfirmationEntry[]>(
+    `/tournaments/${tournamentId}/pending-payments`,
   );
   return data;
 }

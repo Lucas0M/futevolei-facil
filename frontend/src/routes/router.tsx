@@ -9,6 +9,7 @@ import { TournamentListPage } from "../features/tournaments/pages/TournamentList
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
 import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrationsPage";
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
+import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTournamentDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -31,7 +32,10 @@ export const router = createBrowserRouter([
       // Admin-only routes.
       {
         element: <RequireAdmin />,
-        children: [{ path: "admin", element: <DashboardPage /> }],
+        children: [
+          { path: "admin", element: <DashboardPage /> },
+          { path: "admin/torneios/:id", element: <AdminTournamentDetailPage /> },
+        ],
       },
     ],
   },

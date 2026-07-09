@@ -87,12 +87,14 @@ export async function getCategoryDetail(
         select: { id: true, name: true, eventDate: true, location: true },
       },
       registrations: {
-        select: { status: true, user: { select: { name: true } } },
+        select: { id: true, status: true, customPlayerName: true, user: { select: { name: true } } },
       },
       teams: {
         select: {
+          id: true,
           status: true,
           partnerName: true,
+          customOwnerName: true,
           ownerUser: { select: { name: true } },
         },
       },
@@ -131,14 +133,14 @@ export async function getCategoryDetail(
         ? category.teams.map((t) => ({
             kind: "team" as const,
             id: t.id,
-            ownerName: t.ownerUser.name,
+            ownerName: t.customOwnerName ?? t.ownerUser.name,
             partnerName: t.partnerName,
             status: t.status,
           }))
         : category.registrations.map((r) => ({
             kind: "registration" as const,
             id: r.id,
-            name: r.user.name,
+            name: r.customPlayerName ?? r.user.name,
             status: r.status,
           })),
   };

@@ -1,12 +1,14 @@
 import { Request, Response } from "express";
 import * as registrationsService from "./registrations.service";
-import { createTeamRegistrationSchema, updateTeamPartnerSchema } from "./registrations.schema";
+import { createTeamRegistrationSchema, createIndividualRegistrationSchema, updateTeamPartnerSchema } from "./registrations.schema";
 
 export async function createRegistrationHandler(req: Request, res: Response) {
-  // partnerName is only required for DUO_FIXED categories; the service
-  // decides whether it's needed based on the category's format.
-  const parsed = createTeamRegistrationSchema.partial().parse(req.body ?? {});
-  const registration = await registrationsService.createRegistration(req.params.categoryId, req.user!.id, parsed);
+  const isDuo = req.body?.partnerName !== undefined;
+  const parsed = isDuo 
+    ? createTeamRegistrationSchema.parse(req.body)
+    : createIndividualRegistrationSchema.parse(req.body ?? {});
+    
+  const registration = await registrationsService.createRegistration(req.params.categoryId, req.user!.id, req.user!.role, parsed);
   res.status(201).json(registration);
 }
 

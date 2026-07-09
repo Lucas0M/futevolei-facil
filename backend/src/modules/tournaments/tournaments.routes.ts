@@ -6,6 +6,7 @@ import {
   publishTournamentHandler,
   listTournamentsHandler,
   getTournamentDetailHandler,
+  getTournamentPendingPaymentsHandler,
 } from "./tournaments.controller";
 import { authenticate } from "../../shared/middlewares/authenticate";
 import { optionalAuthenticate } from "../../shared/middlewares/optionalAuthenticate";
@@ -23,3 +24,4 @@ tournamentsRoutes.post("/", authenticate, authorize("ADMIN"), asyncHandler(creat
 tournamentsRoutes.patch("/:id", authenticate, authorize("ADMIN"), asyncHandler(updateTournamentHandler));
 tournamentsRoutes.post("/:id/publish", authenticate, authorize("ADMIN"), asyncHandler(publishTournamentHandler));
 tournamentsRoutes.delete("/:id", authenticate, authorize("ADMIN"), asyncHandler(cancelTournamentHandler));
+tournamentsRoutes.get("/:id/pending-payments", authenticate, authorize("ADMIN"), asyncHandler(getTournamentPendingPaymentsHandler));

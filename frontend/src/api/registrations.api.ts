@@ -3,7 +3,7 @@ import type { Registration, Team } from "../types/api.types";
 
 export async function createRegistration(
   categoryId: string,
-  body: { partnerName?: string } = {},
+  body: { partnerName?: string; customOwnerName?: string; customPlayerName?: string } = {},
 ): Promise<Registration | Team> {
   const { data } = await httpClient.post(
     `/categories/${categoryId}/registrations`,

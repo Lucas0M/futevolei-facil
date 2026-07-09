@@ -19,6 +19,7 @@ import {
   X,
   Trophy,
   Users,
+  AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDashboardSummary } from "../../../api/dashboard.api";
@@ -30,11 +31,6 @@ import {
   publishTournament,
   updateTournament,
 } from "../../../api/tournaments.api";
-import {
-  confirmRegistrationPayment,
-  confirmTeamPayment,
-  type TeamPaymentPortion,
-} from "../../../api/payments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import {
   formatLabel,
@@ -48,15 +44,6 @@ import type {
   TournamentFormInput,
 } from "../../../types/api.types";
 
-const TEAM_PORTION_OPTIONS: Array<{
-  value: TeamPaymentPortion;
-  label: string;
-}> = [
-  { value: "FULL", label: "Dupla inteira" },
-  { value: "OWNER_SHARE", label: "Parte do dono" },
-  { value: "PARTNER_SHARE", label: "Parte do parceiro" },
-];
-
 const EMPTY_TOURNAMENT_FORM: TournamentFormInput = {
   name: "",
   description: "",
@@ -69,10 +56,6 @@ export function DashboardPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [selectedPortion, setSelectedPortion] = useState<
-    Record<string, TeamPaymentPortion>
-  >({});
   const [bracket, setBracket] = useState<GeneratedBracket | null>(null);
   const [generatingCategoryId, setGeneratingCategoryId] = useState<
     string | null
@@ -113,28 +96,6 @@ export function DashboardPage() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
-
-  async function handleConfirm(
-    entry: DashboardSummary["pendingConfirmations"][number],
-  ) {
-    setConfirmingId(entry.id);
-    setError(null);
-    try {
-      if (entry.kind === "registration") {
-        await confirmRegistrationPayment(entry.id);
-      } else {
-        const portion = selectedPortion[entry.id] ?? "FULL";
-        await confirmTeamPayment(entry.id, portion);
-      }
-      await loadDashboard();
-    } catch (err) {
-      setError(
-        getApiErrorMessage(err, "Não foi possível confirmar este pagamento."),
-      );
-    } finally {
-      setConfirmingId(null);
-    }
-  }
 
   async function handleGenerateBracket(categoryId: string) {
     setGeneratingCategoryId(categoryId);
@@ -331,67 +292,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
-        <section>
-          <h2 className="text-lg font-bold text-white">
-            Aguardando confirmação de pagamento
-          </h2>
-
-          {summary.pendingConfirmations.length === 0 ? (
-            <div className="mt-3 flex items-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/60 px-4 py-6 text-slate-400">
-              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-              Nenhum pagamento pendente no momento.
-            </div>
-          ) : (
-            <ul className="mt-3 flex flex-col gap-3">
-              {summary.pendingConfirmations.map((entry) => (
-                <li
-                  key={`${entry.kind}-${entry.id}`}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-black/10"
-                >
-                  <div>
-                    <p className="font-semibold text-white">
-                      {entry.playerName}
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      {entry.tournamentName} · R$ {entry.amountDue}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {entry.kind === "team" && (
-                      <select
-                        value={selectedPortion[entry.id] ?? "FULL"}
-                        onChange={(e) =>
-                          setSelectedPortion((prev) => ({
-                            ...prev,
-                            [entry.id]: e.target.value as TeamPaymentPortion,
-                          }))
-                        }
-                        className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-200 focus:border-emerald-500 focus:outline-none"
-                      >
-                        {TEAM_PORTION_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <button
-                      onClick={() => handleConfirm(entry)}
-                      disabled={confirmingId === entry.id}
-                      className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
-                    >
-                      {confirmingId === entry.id
-                        ? "Confirmando..."
-                        : "Confirmar pagamento"}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      <div className="grid gap-8 xl:grid-cols-[1fr]">
 
         <section>
           <div className="flex items-center justify-between gap-3">
@@ -796,11 +697,10 @@ function TournamentManagementPanel({
                 return (
                   <article
                     key={tournament.id}
-                    className={`rounded-2xl border p-4 transition ${
-                      isSelected
+                    className={`rounded-2xl border p-4 transition ${isSelected
                         ? "border-emerald-400/50 bg-emerald-500/5"
                         : "border-slate-800 bg-slate-900/60"
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -831,11 +731,11 @@ function TournamentManagementPanel({
 
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Link
-                        to={`/torneios/${tournament.id}`}
+                        to={`/admin/torneios/${tournament.id}`}
                         className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                       >
                         <ArrowRight className="h-4 w-4" />
-                        Detalhes
+                        Gerenciar
                       </Link>
 
                       <button

@@ -193,6 +193,7 @@ model Registration {
   category   Category   @relation(fields: [categoryId], references: [id])
   userId     String
   user       User       @relation(fields: [userId], references: [id])
+  customPlayerName String?
 
   status        RegistrationStatus @default(PENDING_PAYMENT)
   amountDue     Decimal            @db.Decimal(10, 2)
@@ -222,6 +223,7 @@ model Team {
 
   ownerUserId String
   ownerUser   User   @relation("TeamOwner", fields: [ownerUserId], references: [id])
+  customOwnerName String?
 
   partnerName String // free-text partner name, editable later by an admin
 
