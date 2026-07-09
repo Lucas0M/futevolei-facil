@@ -8,6 +8,7 @@ import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { TournamentListPage } from "../features/tournaments/pages/TournamentListPage";
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
 import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrationsPage";
+import { AdminCategoriesPage } from "../features/admin/pages/AdminCategoriesPage";
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
 
 export const router = createBrowserRouter([
@@ -31,7 +32,10 @@ export const router = createBrowserRouter([
       // Admin-only routes.
       {
         element: <RequireAdmin />,
-        children: [{ path: "admin", element: <DashboardPage /> }],
+        children: [
+          { path: "admin", element: <DashboardPage /> },
+          { path: "admin/categorias", element: <AdminCategoriesPage /> },
+        ],
       },
     ],
   },

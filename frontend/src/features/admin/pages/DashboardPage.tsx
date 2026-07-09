@@ -267,6 +267,14 @@ export function DashboardPage() {
 
           <div className="flex flex-wrap gap-3">
             <Link
+              to="/admin/categorias"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:border-emerald-400/40 hover:bg-emerald-400/10"
+            >
+              Categorias
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+
+            <Link
               to="/torneios"
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:border-emerald-400/40 hover:bg-emerald-400/10"
             >
