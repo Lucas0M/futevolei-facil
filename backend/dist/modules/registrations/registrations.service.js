@@ -13,26 +13,64 @@ const AppError_1 = require("../../shared/errors/AppError");
 // ---------------------------------------------------------------------------
 // CREATE (RF10, RF11, RF14, RN01, RN03, RN08, RN09)
 // ---------------------------------------------------------------------------
-async function createRegistration(categoryId, userId, body) {
+async function createRegistration(categoryId, userId, userRole, body) {
     const category = await client_2.prisma.category.findUnique({ where: { id: categoryId } });
     if (!category) {
         throw new AppError_1.AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
     }
-    assertCategoryIsOpenForRegistration(category.status, category.registrationDeadline);
+    if (userRole !== "ADMIN") {
+        assertCategoryIsOpenForRegistration(category.status, category.registrationDeadline);
+    }
+    let targetUserId = userId;
+    if (userRole === "ADMIN") {
+        const dummyEmail = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 7)}@ares.com`;
+        const dummyUser = await client_2.prisma.user.create({
+            data: {
+                email: dummyEmail,
+                passwordHash: "manual-registration",
+                name: body.customPlayerName || body.customOwnerName || "Jogador Manual",
+                role: "PLAYER"
+            }
+        });
+        targetUserId = dummyUser.id;
+    }
     if (category.format === "DUO_FIXED") {
         if (!body.partnerName) {
             throw new AppError_1.AppError("Nome do parceiro é obrigatório para esta categoria.", 422, "PARTNER_NAME_REQUIRED");
         }
-        return createTeamRegistration(category, userId, { partnerName: body.partnerName });
+        return createTeamRegistration(category, targetUserId, userRole, { partnerName: body.partnerName, customOwnerName: body.customOwnerName || body.customPlayerName });
     }
-    return createIndividualRegistration(category, userId);
+    return createIndividualRegistration(category, targetUserId, userRole, { customPlayerName: body.customPlayerName });
 }
-async function createIndividualRegistration(category, userId) {
+async function createIndividualRegistration(category, userId, userRole, input) {
     const existing = await client_2.prisma.registration.findUnique({
         where: { categoryId_userId: { categoryId: category.id, userId } },
     });
     if (existing && existing.status !== "CANCELLED" && existing.status !== "EXPIRED") {
         throw new AppError_1.AppError("Você já está inscrito nesta categoria.", 409, "ALREADY_REGISTERED");
+    }
+    const user = await client_2.prisma.user.findUnique({ where: { id: userId } });
+    const nameToCheck = input.customPlayerName || user?.name || "";
+    const normalized = normalizeName(nameToCheck);
+    // Check duplicate name in registrations
+    const activeRegs = await client_2.prisma.registration.findMany({
+        where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+        include: { user: true }
+    });
+    for (const r of activeRegs) {
+        if (r.id !== existing?.id && normalizeName(r.customPlayerName || r.user.name) === normalized) {
+            throw new AppError_1.AppError(`O jogador "${nameToCheck}" já está inscrito nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+        }
+    }
+    // Check duplicate name in teams
+    const activeTeams = await client_2.prisma.team.findMany({
+        where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+        include: { ownerUser: true }
+    });
+    for (const t of activeTeams) {
+        if (normalizeName(t.customOwnerName || t.ownerUser.name) === normalized || normalizeName(t.partnerName) === normalized) {
+            throw new AppError_1.AppError(`O jogador "${nameToCheck}" já está inscrito em uma dupla nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+        }
     }
     return client_2.prisma.$transaction(async (tx) => {
         await tx.$queryRaw `SELECT id FROM categories WHERE id = ${category.id} FOR UPDATE`;
@@ -50,7 +88,12 @@ async function createIndividualRegistration(category, userId) {
             await tx.payment.deleteMany({ where: { registrationId: existing.id } });
             return tx.registration.update({
                 where: { id: existing.id },
-                data: { amountDue: category.entryFee, status: client_1.RegistrationStatus.PENDING_PAYMENT, reservedUntil },
+                data: {
+                    amountDue: category.entryFee,
+                    status: client_1.RegistrationStatus.PENDING_PAYMENT,
+                    reservedUntil,
+                    customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
+                },
             });
         }
         return tx.registration.create({
@@ -60,16 +103,18 @@ async function createIndividualRegistration(category, userId) {
                 amountDue: category.entryFee,
                 status: client_1.RegistrationStatus.PENDING_PAYMENT,
                 reservedUntil,
+                customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
             },
         });
     });
 }
-async function createTeamRegistration(category, ownerUserId, input) {
+async function createTeamRegistration(category, ownerUserId, userRole, input) {
     const owner = await client_2.prisma.user.findUnique({ where: { id: ownerUserId } });
     if (!owner) {
         throw new AppError_1.AppError("Usuário não encontrado.", 404, "USER_NOT_FOUND");
     }
-    if (normalizeName(input.partnerName) === normalizeName(owner.name)) {
+    const ownerNameToCheck = input.customOwnerName || owner.name;
+    if (normalizeName(input.partnerName) === normalizeName(ownerNameToCheck)) {
         throw new AppError_1.AppError("O parceiro não pode ser você mesmo.", 422, "INVALID_PARTNER");
     }
     const existing = await client_2.prisma.team.findUnique({
@@ -77,6 +122,39 @@ async function createTeamRegistration(category, ownerUserId, input) {
     });
     if (existing && existing.status !== "CANCELLED" && existing.status !== "EXPIRED") {
         throw new AppError_1.AppError("Você já inscreveu uma dupla nesta categoria.", 409, "ALREADY_REGISTERED");
+    }
+    const normalizedOwner = normalizeName(ownerNameToCheck);
+    const normalizedPartner = normalizeName(input.partnerName);
+    // Check duplicate name in registrations
+    const activeRegs = await client_2.prisma.registration.findMany({
+        where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+        include: { user: true }
+    });
+    for (const r of activeRegs) {
+        const rName = normalizeName(r.customPlayerName || r.user.name);
+        if (rName === normalizedOwner) {
+            throw new AppError_1.AppError(`O jogador "${ownerNameToCheck}" já está inscrito nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+        }
+        if (rName === normalizedPartner) {
+            throw new AppError_1.AppError(`O jogador "${input.partnerName}" já está inscrito nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+        }
+    }
+    // Check duplicate name in teams
+    const activeTeams = await client_2.prisma.team.findMany({
+        where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+        include: { ownerUser: true }
+    });
+    for (const t of activeTeams) {
+        if (t.id === existing?.id)
+            continue;
+        const tOwner = normalizeName(t.customOwnerName || t.ownerUser.name);
+        const tPartner = normalizeName(t.partnerName);
+        if (tOwner === normalizedOwner || tPartner === normalizedOwner) {
+            throw new AppError_1.AppError(`O jogador "${ownerNameToCheck}" já está inscrito em outra dupla nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+        }
+        if (tOwner === normalizedPartner || tPartner === normalizedPartner) {
+            throw new AppError_1.AppError(`O jogador "${input.partnerName}" já está inscrito em outra dupla nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+        }
     }
     return client_2.prisma.$transaction(async (tx) => {
         await tx.$queryRaw `SELECT id FROM categories WHERE id = ${category.id} FOR UPDATE`;
@@ -97,6 +175,7 @@ async function createTeamRegistration(category, ownerUserId, input) {
                     amountDue: category.entryFee,
                     status: client_1.TeamRegistrationStatus.PENDING_PAYMENT,
                     reservedUntil,
+                    customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
                 },
             });
         }
@@ -108,6 +187,7 @@ async function createTeamRegistration(category, ownerUserId, input) {
                 amountDue: category.entryFee,
                 status: client_1.TeamRegistrationStatus.PENDING_PAYMENT,
                 reservedUntil,
+                customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
             },
         });
     });

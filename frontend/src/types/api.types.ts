@@ -54,6 +54,21 @@ export interface TournamentDetailCategory {
   registrationDeadline: string;
   status: TournamentStatus;
   registrants?: CategoryDetailRegistrant[];
+  winnerName?: string | null;
+  matches?: Match[];
+}
+
+export interface Match {
+  id: string;
+  categoryId: string;
+  round: number;
+  position: number;
+  competitorAId: string | null;
+  competitorAName: string | null;
+  competitorBId: string | null;
+  competitorBName: string | null;
+  winnerId: string | null;
+  score: string | null;
 }
 
 export interface CategoryDetailRegistrant {
@@ -77,6 +92,7 @@ export interface TournamentFormInput {
   description: string;
   eventDate: string;
   location: string;
+  status?: TournamentStatus;
 }
 
 export interface PaginatedResult<T> {

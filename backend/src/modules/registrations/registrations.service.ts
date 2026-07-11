@@ -13,16 +13,32 @@ export async function createRegistration(categoryId: string, userId: string, use
     throw new AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
   }
 
-  assertCategoryIsOpenForRegistration(category.status, category.registrationDeadline);
+  if (userRole !== "ADMIN") {
+    assertCategoryIsOpenForRegistration(category.status, category.registrationDeadline);
+  }
+
+  let targetUserId = userId;
+  if (userRole === "ADMIN") {
+    const dummyEmail = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 7)}@ares.com`;
+    const dummyUser = await prisma.user.create({
+      data: {
+        email: dummyEmail,
+        passwordHash: "manual-registration",
+        name: body.customPlayerName || body.customOwnerName || "Jogador Manual",
+        role: "PLAYER"
+      }
+    });
+    targetUserId = dummyUser.id;
+  }
 
   if (category.format === "DUO_FIXED") {
     if (!body.partnerName) {
       throw new AppError("Nome do parceiro é obrigatório para esta categoria.", 422, "PARTNER_NAME_REQUIRED");
     }
-    return createTeamRegistration(category, userId, userRole, { partnerName: body.partnerName, customOwnerName: body.customOwnerName });
+    return createTeamRegistration(category, targetUserId, userRole, { partnerName: body.partnerName, customOwnerName: body.customOwnerName || body.customPlayerName });
   }
 
-  return createIndividualRegistration(category, userId, userRole, { customPlayerName: body.customPlayerName });
+  return createIndividualRegistration(category, targetUserId, userRole, { customPlayerName: body.customPlayerName });
 }
 
 async function createIndividualRegistration(
@@ -36,6 +52,32 @@ async function createIndividualRegistration(
   });
   if (existing && existing.status !== "CANCELLED" && existing.status !== "EXPIRED") {
     throw new AppError("Você já está inscrito nesta categoria.", 409, "ALREADY_REGISTERED");
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const nameToCheck = input.customPlayerName || user?.name || "";
+  const normalized = normalizeName(nameToCheck);
+
+  // Check duplicate name in registrations
+  const activeRegs = await prisma.registration.findMany({
+    where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+    include: { user: true }
+  });
+  for (const r of activeRegs) {
+    if (r.id !== existing?.id && normalizeName(r.customPlayerName || r.user.name) === normalized) {
+      throw new AppError(`O jogador "${nameToCheck}" já está inscrito nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+    }
+  }
+
+  // Check duplicate name in teams
+  const activeTeams = await prisma.team.findMany({
+    where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+    include: { ownerUser: true }
+  });
+  for (const t of activeTeams) {
+    if (normalizeName(t.customOwnerName || t.ownerUser.name) === normalized || normalizeName(t.partnerName) === normalized) {
+      throw new AppError(`O jogador "${nameToCheck}" já está inscrito em uma dupla nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+    }
   }
 
   return prisma.$transaction(async (tx) => {
@@ -93,7 +135,8 @@ async function createTeamRegistration(
     throw new AppError("Usuário não encontrado.", 404, "USER_NOT_FOUND");
   }
 
-  if (normalizeName(input.partnerName) === normalizeName(userRole === "ADMIN" && input.customOwnerName ? input.customOwnerName : owner.name)) {
+  const ownerNameToCheck = input.customOwnerName || owner.name;
+  if (normalizeName(input.partnerName) === normalizeName(ownerNameToCheck)) {
     throw new AppError("O parceiro não pode ser você mesmo.", 422, "INVALID_PARTNER");
   }
 
@@ -102,6 +145,42 @@ async function createTeamRegistration(
   });
   if (existing && existing.status !== "CANCELLED" && existing.status !== "EXPIRED") {
     throw new AppError("Você já inscreveu uma dupla nesta categoria.", 409, "ALREADY_REGISTERED");
+  }
+
+  const normalizedOwner = normalizeName(ownerNameToCheck);
+  const normalizedPartner = normalizeName(input.partnerName);
+
+  // Check duplicate name in registrations
+  const activeRegs = await prisma.registration.findMany({
+    where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+    include: { user: true }
+  });
+  for (const r of activeRegs) {
+    const rName = normalizeName(r.customPlayerName || r.user.name);
+    if (rName === normalizedOwner) {
+      throw new AppError(`O jogador "${ownerNameToCheck}" já está inscrito nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+    }
+    if (rName === normalizedPartner) {
+      throw new AppError(`O jogador "${input.partnerName}" já está inscrito nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+    }
+  }
+
+  // Check duplicate name in teams
+  const activeTeams = await prisma.team.findMany({
+    where: { categoryId: category.id, status: { notIn: ["CANCELLED", "EXPIRED"] } },
+    include: { ownerUser: true }
+  });
+  for (const t of activeTeams) {
+    if (t.id === existing?.id) continue;
+    const tOwner = normalizeName(t.customOwnerName || t.ownerUser.name);
+    const tPartner = normalizeName(t.partnerName);
+
+    if (tOwner === normalizedOwner || tPartner === normalizedOwner) {
+      throw new AppError(`O jogador "${ownerNameToCheck}" já está inscrito em outra dupla nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+    }
+    if (tOwner === normalizedPartner || tPartner === normalizedPartner) {
+      throw new AppError(`O jogador "${input.partnerName}" já está inscrito em outra dupla nesta categoria.`, 409, "DUPLICATE_PLAYER_NAME");
+    }
   }
 
   return prisma.$transaction(async (tx) => {

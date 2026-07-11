@@ -86,7 +86,7 @@ async function confirmTeamPayment(teamId, input, adminId) {
             throw new AppError_1.AppError("Esta parte do pagamento já foi confirmada.", 409, "PAYMENT_ALREADY_EXISTS");
         }
     }
-    const amount = portion === "FULL" ? team.amountDue : team.amountDue.div(2);
+    const amount = portion === "FULL" ? team.amountDue.mul(2) : team.amountDue;
     const existingPayment = team.payments.find((p) => p.teamPortion === portion);
     return client_1.prisma.$transaction(async (tx) => {
         // Reuses a PENDING payment row left over from an abandoned/incomplete

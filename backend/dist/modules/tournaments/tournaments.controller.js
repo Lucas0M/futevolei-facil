@@ -39,6 +39,7 @@ exports.cancelTournamentHandler = cancelTournamentHandler;
 exports.publishTournamentHandler = publishTournamentHandler;
 exports.listTournamentsHandler = listTournamentsHandler;
 exports.getTournamentDetailHandler = getTournamentDetailHandler;
+exports.getTournamentPendingPaymentsHandler = getTournamentPendingPaymentsHandler;
 const tournamentsService = __importStar(require("./tournaments.service"));
 const tournaments_schema_1 = require("./tournaments.schema");
 async function createTournamentHandler(req, res) {
@@ -52,7 +53,7 @@ async function updateTournamentHandler(req, res) {
     res.status(200).json(tournament);
 }
 async function cancelTournamentHandler(req, res) {
-    const tournament = await tournamentsService.cancelTournament(req.params.id);
+    const tournament = await tournamentsService.deleteTournament(req.params.id);
     res.status(200).json(tournament);
 }
 async function publishTournamentHandler(req, res) {
@@ -67,5 +68,9 @@ async function listTournamentsHandler(req, res) {
 async function getTournamentDetailHandler(req, res) {
     const tournament = await tournamentsService.getTournamentDetail(req.params.id, req.user?.role ?? "PLAYER");
     res.status(200).json(tournament);
+}
+async function getTournamentPendingPaymentsHandler(req, res) {
+    const pendingPayments = await tournamentsService.getTournamentPendingPayments(req.params.id);
+    res.status(200).json(pendingPayments);
 }
 //# sourceMappingURL=tournaments.controller.js.map

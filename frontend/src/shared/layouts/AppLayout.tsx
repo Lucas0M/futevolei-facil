@@ -1,15 +1,25 @@
-import { Outlet, Link, useNavigate } from "react-router-dom";
+import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { LogOut, Shield } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   function handleLogout() {
     logout();
     navigate("/login");
   }
+
+  const linkClass = (path: string) => {
+    const isActive = location.pathname === path;
+    return `rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+      isActive
+        ? "bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.35)]"
+        : "text-slate-300 hover:bg-white/5 hover:text-white"
+    }`;
+  };
 
   return (
     <div className="min-h-screen bg-[#05080F] text-white relative overflow-hidden">
@@ -37,18 +47,32 @@ export function AppLayout() {
           </Link>
 
           {/* Menu */}
-          <nav className="flex items-center gap-3">
+          <nav className="flex items-center gap-2">
             <Link
               to="/torneios"
-              className="rounded-xl px-5 py-3 text-sm font-medium text-gray-300 transition-all duration-300 hover:bg-emerald-500/10 hover:text-emerald-400"
+              className={linkClass("/torneios")}
             >
               Torneios
+            </Link>
+
+            <Link
+              to="/historico"
+              className={linkClass("/historico")}
+            >
+              Histórico
+            </Link>
+
+            <Link
+              to="/ranking"
+              className={linkClass("/ranking")}
+            >
+              Ranking
             </Link>
 
             {user && (
               <Link
                 to="/minhas-inscricoes"
-                className="rounded-xl px-5 py-3 text-sm font-medium text-gray-300 transition-all duration-300 hover:bg-emerald-500/10 hover:text-emerald-400"
+                className={linkClass("/minhas-inscricoes")}
               >
                 Minhas inscrições
               </Link>
@@ -57,7 +81,7 @@ export function AppLayout() {
             {user?.role === "ADMIN" && (
               <Link
                 to="/admin"
-                className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-emerald-400 transition-all duration-300 hover:bg-emerald-500/10"
+                className={`flex items-center gap-1.5 ${linkClass("/admin")}`}
               >
                 <Shield size={16} />
                 Admin

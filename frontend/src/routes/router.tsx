@@ -7,6 +7,8 @@ import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { TournamentListPage } from "../features/tournaments/pages/TournamentListPage";
 import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDetailPage";
+import { TournamentHistoryPage } from "../features/tournaments/pages/TournamentHistoryPage";
+import { RankingsPage } from "../features/rankings/pages/RankingsPage";
 import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrationsPage";
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
 import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTournamentDetailPage";
@@ -22,6 +24,8 @@ export const router = createBrowserRouter([
       { path: "registro", element: <RegisterPage /> },
       { path: "torneios", element: <TournamentListPage /> },
       { path: "torneios/:id", element: <TournamentDetailPage /> },
+      { path: "historico", element: <TournamentHistoryPage /> },
+      { path: "ranking", element: <RankingsPage /> },
 
       // Protected routes - require login (e.g. "minhas inscrições", built later).
       {

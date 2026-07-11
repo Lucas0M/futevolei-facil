@@ -78,7 +78,7 @@ async function createTeamCheckout(teamId, userId, portion) {
     if (portion !== "FULL" && approvedPortions.includes(portion)) {
         throw new AppError_1.AppError("Esta parte do pagamento já foi confirmada.", 409, "PAYMENT_ALREADY_EXISTS");
     }
-    const amount = portion === "FULL" ? team.amountDue : team.amountDue.div(2);
+    const amount = portion === "FULL" ? team.amountDue.mul(2) : team.amountDue;
     const title = `${team.category.tournament.name} - ${team.category.name} (${portion === "FULL" ? "dupla" : "parte individual"})`;
     const preference = await mercadopago_client_1.preferenceClient.create({
         body: {

@@ -7,48 +7,48 @@ import {
 } from "./categories.schema";
 
 export async function createCategoryHandler(
-  req: Request<{ tournamentId: string }>,
+  req: Request,
   res: Response,
 ) {
   const input = createCategorySchema.parse(req.body);
-  const { tournamentId } = req.params;
+  const tournamentId = req.params.tournamentId as string;
   const category = await categoriesService.createCategory(tournamentId, input);
   res.status(201).json(category);
 }
 
 export async function updateCategoryHandler(
-  req: Request<{ id: string }>,
+  req: Request,
   res: Response,
 ) {
   const input = updateCategorySchema.parse(req.body);
-  const { id: categoryId } = req.params;
+  const categoryId = req.params.id as string;
   const category = await categoriesService.updateCategory(categoryId, input);
   res.status(200).json(category);
 }
 
 export async function cancelCategoryHandler(
-  req: Request<{ id: string }>,
+  req: Request,
   res: Response,
 ) {
-  const { id: categoryId } = req.params;
-  const category = await categoriesService.cancelCategory(categoryId);
+  const categoryId = req.params.id as string;
+  const category = await categoriesService.deleteCategory(categoryId);
   res.status(200).json(category);
 }
 
 export async function publishCategoryHandler(
-  req: Request<{ id: string }>,
+  req: Request,
   res: Response,
 ) {
-  const { id: categoryId } = req.params;
+  const categoryId = req.params.id as string;
   const category = await categoriesService.publishCategory(categoryId);
   res.status(200).json(category);
 }
 
 export async function getCategoryDetailHandler(
-  req: Request<{ id: string }>,
+  req: Request,
   res: Response,
 ) {
-  const { id: categoryId } = req.params;
+  const categoryId = req.params.id as string;
   const category = await categoriesService.getCategoryDetail(
     categoryId,
     req.user?.role ?? "PLAYER",
@@ -57,10 +57,10 @@ export async function getCategoryDetailHandler(
 }
 
 export async function exportCategoryRegistrantsHandler(
-  req: Request<{ id: string }>,
+  req: Request,
   res: Response,
 ) {
-  const { id: categoryId } = req.params;
+  const categoryId = req.params.id as string;
   const csv =
     await categoryExportService.exportCategoryRegistrantsCsv(categoryId);
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -72,10 +72,29 @@ export async function exportCategoryRegistrantsHandler(
 }
 
 export async function generateCategoryBracketHandler(
-  req: Request<{ id: string }>,
+  req: Request,
   res: Response,
 ) {
-  const { id: categoryId } = req.params;
+  const categoryId = req.params.id as string;
   const bracket = await categoriesService.generateCategoryBracket(categoryId);
   res.status(200).json(bracket);
+}
+
+export async function generatePersistentBracketHandler(
+  req: Request,
+  res: Response,
+) {
+  const categoryId = req.params.id as string;
+  const bracket = await categoriesService.generatePersistentBracket(categoryId);
+  res.status(200).json(bracket);
+}
+
+export async function updateMatchWinnerHandler(
+  req: Request,
+  res: Response,
+) {
+  const matchId = req.params.matchId as string;
+  const { winnerId, score } = req.body;
+  const match = await categoriesService.updateMatchWinner(matchId, winnerId, score);
+  res.status(200).json(match);
 }

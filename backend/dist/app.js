@@ -17,6 +17,7 @@ const registrations_routes_1 = require("./modules/registrations/registrations.ro
 const teams_routes_1 = require("./modules/registrations/teams.routes");
 const payments_routes_1 = require("./modules/payments/payments.routes");
 const dashboard_routes_1 = require("./modules/dashboard/dashboard.routes");
+const rankings_routes_1 = require("./modules/rankings/rankings.routes");
 function createApp() {
     const app = (0, express_1.default)();
     app.use((0, cors_1.default)({ origin: env_1.env.FRONTEND_URL, credentials: true }));
@@ -34,6 +35,7 @@ function createApp() {
     app.use("/api/teams", teams_routes_1.teamsRoutes);
     app.use("/api/payments", payments_routes_1.paymentsRoutes);
     app.use("/api/admin/dashboard", dashboard_routes_1.dashboardRoutes);
+    app.use("/api/rankings", rankings_routes_1.rankingsRoutes);
     // Error handler must always be the LAST middleware registered.
     app.use(errorHandler_1.errorHandler);
     return app;

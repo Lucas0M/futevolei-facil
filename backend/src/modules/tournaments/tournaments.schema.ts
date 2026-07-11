@@ -14,6 +14,7 @@ export const updateTournamentSchema = z.object({
   description: z.string().optional(),
   eventDate: z.coerce.date().optional(),
   location: z.string().min(3).optional(),
+  status: z.nativeEnum(EntityStatus).optional(),
 });
 export type UpdateTournamentInput = z.infer<typeof updateTournamentSchema>;
 

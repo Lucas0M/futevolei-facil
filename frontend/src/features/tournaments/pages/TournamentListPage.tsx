@@ -8,8 +8,9 @@ import {
   statusLabel,
 } from "../../../shared/utils/tournamentLabels";
 import type { Tournament, TournamentStatus } from "../../../types/api.types";
+import { Trophy, Search, Calendar, MapPin, Sparkles } from "lucide-react";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
 
 const STATUS_FILTER_OPTIONS: Array<{
   value: TournamentStatus | "";
@@ -77,121 +78,152 @@ export function TournamentListPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-white">
-            Torneios
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white flex items-center gap-2">
+            <Trophy className="h-8 w-8 text-emerald-400" />
+            Torneios Disponíveis
           </h1>
-          <p className="mt-2 text-slate-300">
-            Encontre o próximo torneio e faça sua inscrição.
+          <p className="mt-2 text-sm text-slate-400">
+            Encontre a sua categoria, prepare sua dupla e dispute o topo do pódio.
           </p>
         </div>
 
         {user?.role === "ADMIN" && (
           <Link
             to="/admin"
-            className="inline-flex items-center rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:border-emerald-400/60 hover:bg-emerald-500/20"
+            className="inline-flex items-center rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.2)] transition hover:bg-emerald-400"
           >
-            Abrir painel admin
+            Acessar Painel Admin
           </Link>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      {/* Filter panel */}
+      <div className="grid gap-4 sm:grid-cols-2 max-w-xl">
+        <div className="relative">
+          <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Filtrar por categoria (ex: Iniciante)..."
+            value={categoryFilter}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              handleFilterChange();
+            }}
+            className="w-full rounded-xl border border-slate-800 bg-slate-950/80 pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-emerald-400 focus:bg-slate-950"
+          />
+        </div>
+
         <select
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value as TournamentStatus | "");
             handleFilterChange();
           }}
-          className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
+          className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
         >
           {STATUS_FILTER_OPTIONS.map((option) => (
             <option
               key={option.value}
               value={option.value}
-              className="bg-slate-900"
+              className="bg-slate-950"
             >
               {option.label}
             </option>
           ))}
         </select>
-
-        <input
-          type="text"
-          placeholder="Filtrar por categoria..."
-          value={categoryFilter}
-          onChange={(e) => {
-            setCategoryFilter(e.target.value);
-            handleFilterChange();
-          }}
-          className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-emerald-400"
-        />
       </div>
 
-      {isLoading && <p className="text-slate-300">Carregando torneios...</p>}
-
-      {error && <p className="font-medium text-red-400">{error}</p>}
-
-      {!isLoading && !error && tournaments.length === 0 && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-400">
-          Nenhum torneio encontrado com esses filtros.
+      {isLoading && (
+        <div className="py-12 text-center">
+          <p className="text-sm text-slate-400 animate-pulse">Carregando painel de disputas...</p>
         </div>
       )}
 
-      <div className="grid gap-5 md:grid-cols-2">
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {!isLoading && !error && tournaments.length === 0 && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-12 text-center text-sm text-slate-500">
+          Nenhum torneio ativo encontrado com os filtros selecionados.
+        </div>
+      )}
+
+      {/* Tournaments grid */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {tournaments.map((tournament) => (
           <Link
             key={tournament.id}
             to={`/torneios/${tournament.id}`}
-            className="group rounded-2xl border border-slate-800 bg-slate-900/70 p-5 transition-all duration-200 hover:-translate-y-1 hover:border-emerald-500/40 hover:bg-slate-900 hover:shadow-xl hover:shadow-emerald-500/10"
+            className="group relative flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950/40 p-6 transition duration-300 hover:border-emerald-500/30 hover:bg-slate-900/30"
           >
-            <div className="flex items-start justify-between gap-4">
-              <h2 className="text-lg font-bold text-white group-hover:text-emerald-300 transition-colors">
+            {/* Top border glow */}
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-emerald-500/25 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+            <div>
+              <div className="flex items-start justify-between gap-4">
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusBadgeClasses(tournament.status)}`}>
+                  {statusLabel(tournament.status)}
+                </span>
+              </div>
+
+              <h2 className="mt-4 text-xl font-bold text-white group-hover:text-emerald-400 transition">
                 {tournament.name}
               </h2>
 
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(tournament.status)}`}
-              >
-                {statusLabel(tournament.status)}
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-2 text-sm">
-              <p className="text-slate-300">📍 {tournament.location}</p>
-
-              <p className="text-slate-300">
-                📅 {new Date(tournament.eventDate).toLocaleDateString("pt-BR")}
-              </p>
+              <div className="mt-4 space-y-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-slate-500 shrink-0" />
+                  <span className="truncate">{tournament.location}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-slate-500 shrink-0" />
+                  <span>{new Date(tournament.eventDate).toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}</span>
+                </div>
+              </div>
 
               {tournament.description && (
-                <p className="text-slate-400">{tournament.description}</p>
+                <p className="mt-4 text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                  {tournament.description}
+                </p>
               )}
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-300 font-medium">
+              <span className="flex items-center gap-1 text-emerald-400 font-semibold group-hover:underline">
+                <Sparkles className="h-3.5 w-3.5" />
+                Ver Detalhes & Inscrição
+              </span>
             </div>
           </Link>
         ))}
       </div>
 
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-5 pt-4">
+        <div className="flex items-center justify-center gap-4 pt-6">
           <button
             onClick={() => setPage((p) => Math.max(p - 1, 1))}
             disabled={page === 1}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:border-emerald-400 disabled:opacity-40"
           >
             Anterior
           </button>
 
-          <span className="text-sm font-medium text-slate-300">
-            Página <span className="text-white">{page}</span> de{" "}
-            <span className="text-white">{totalPages}</span>
+          <span className="text-xs text-slate-400 font-medium">
+            Página <span className="text-white font-bold">{page}</span> de{" "}
+            <span className="text-white font-bold">{totalPages}</span>
           </span>
 
           <button
             onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
             disabled={page === totalPages}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:border-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:border-emerald-400 disabled:opacity-40"
           >
             Próxima
           </button>

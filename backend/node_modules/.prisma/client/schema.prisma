@@ -178,6 +178,8 @@ model Category {
 
   registrations Registration[]
   teams         Team[]
+  matches       Match[]
+  winnerName    String?
 
   @@index([tournamentId, status])
   @@map("categories")
@@ -298,4 +300,44 @@ model WebhookEvent {
   createdAt DateTime @default(now())
 
   @@map("webhook_events")
+}
+
+model Match {
+  id              String   @id @default(uuid())
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  round           Int
+  position        Int
+  competitorAId   String?
+  competitorAName String?
+  competitorBId   String?
+  competitorBName String?
+  winnerId        String?
+  score           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("matches")
+}
+
+model DuoRanking {
+  id          String   @id @default(uuid())
+  playerAName String
+  playerBName String
+  wins        Int      @default(0)
+  points      Float    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([playerAName, playerBName])
+  @@map("duo_rankings")
+}
+
+model IndividualRanking {
+  id         String   @id @default(uuid())
+  playerName String   @unique
+  wins       Int      @default(0)
+  points     Float    @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@map("individual_rankings")
 }

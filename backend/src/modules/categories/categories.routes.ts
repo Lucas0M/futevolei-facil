@@ -7,6 +7,8 @@ import {
   getCategoryDetailHandler,
   exportCategoryRegistrantsHandler,
   generateCategoryBracketHandler,
+  generatePersistentBracketHandler,
+  updateMatchWinnerHandler,
 } from "./categories.controller";
 import { authenticate } from "../../shared/middlewares/authenticate";
 import { optionalAuthenticate } from "../../shared/middlewares/optionalAuthenticate";
@@ -50,6 +52,18 @@ categoriesRoutes.get(
   authenticate,
   authorize("ADMIN"),
   asyncHandler(generateCategoryBracketHandler),
+);
+categoriesRoutes.post(
+  "/:id/bracket",
+  authenticate,
+  authorize("ADMIN"),
+  asyncHandler(generatePersistentBracketHandler),
+);
+categoriesRoutes.patch(
+  "/matches/:matchId",
+  authenticate,
+  authorize("ADMIN"),
+  asyncHandler(updateMatchWinnerHandler),
 );
 
 // Mounted at /api/tournaments - nested creation route

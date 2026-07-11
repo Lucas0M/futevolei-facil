@@ -85,7 +85,7 @@ export async function createTeamCheckout(teamId: string, userId: string, portion
     throw new AppError("Esta parte do pagamento já foi confirmada.", 409, "PAYMENT_ALREADY_EXISTS");
   }
 
-  const amount = portion === "FULL" ? team.amountDue : (team.amountDue as Prisma.Decimal).div(2);
+  const amount = portion === "FULL" ? (team.amountDue as Prisma.Decimal).mul(2) : team.amountDue;
   const title = `${team.category.tournament.name} - ${team.category.name} (${portion === "FULL" ? "dupla" : "parte individual"})`;
 
   const preference = await preferenceClient.create({

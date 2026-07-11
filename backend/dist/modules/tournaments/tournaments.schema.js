@@ -14,6 +14,7 @@ exports.updateTournamentSchema = zod_1.z.object({
     description: zod_1.z.string().optional(),
     eventDate: zod_1.z.coerce.date().optional(),
     location: zod_1.z.string().min(3).optional(),
+    status: zod_1.z.nativeEnum(client_1.EntityStatus).optional(),
 });
 exports.listTournamentsQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).default(1),

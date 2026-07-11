@@ -52,3 +52,44 @@ export async function generateCategoryBracket(
   );
   return data;
 }
+
+export async function updateCategory(
+  categoryId: string,
+  payload: CreateCategoryPayload,
+): Promise<TournamentDetailCategory> {
+  const { data } = await httpClient.patch<TournamentDetailCategory>(
+    `/categories/${categoryId}`,
+    payload,
+  );
+  return data;
+}
+
+export async function deleteCategory(
+  categoryId: string,
+): Promise<TournamentDetailCategory> {
+  const { data } = await httpClient.delete<TournamentDetailCategory>(
+    `/categories/${categoryId}`,
+  );
+  return data;
+}
+
+export async function generatePersistentBracket(
+  categoryId: string,
+): Promise<any> {
+  const { data } = await httpClient.post<any>(
+    `/categories/${categoryId}/bracket`,
+  );
+  return data;
+}
+
+export async function updateMatchWinner(
+  matchId: string,
+  winnerId: string,
+  score: string,
+): Promise<any> {
+  const { data } = await httpClient.patch<any>(
+    `/categories/matches/${matchId}`,
+    { winnerId, score },
+  );
+  return data;
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Trophy, Calendar, MapPin, Plus, CheckCircle, Settings, ArrowRight, ArrowLeft, Shield } from "lucide-react";
+import { CheckCircle, Settings, ArrowRight, ArrowLeft, Shield, Trash2, PencilLine } from "lucide-react";
 import {
   getTournamentDetail,
   updateTournament,
@@ -8,7 +8,8 @@ import {
   getTournamentPendingPayments,
 } from "../../../api/tournaments.api";
 import { confirmRegistrationPayment, confirmTeamPayment, type TeamPaymentPortion } from "../../../api/payments.api";
-import { createCategory, publishCategory } from "../../../api/categories.api";
+import { createRegistration } from "../../../api/registrations.api";
+import { createCategory, publishCategory, updateCategory, deleteCategory, generatePersistentBracket, updateMatchWinner } from "../../../api/categories.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import { statusBadgeClasses, statusLabel, formatLabel, slotsUnitLabel } from "../../../shared/utils/tournamentLabels";
 import type { TournamentDetail, TournamentFormInput, PendingConfirmationEntry, TournamentDetailCategory } from "../../../types/api.types";
@@ -68,7 +69,84 @@ export function AdminTournamentDetailPage() {
   // Category state
   const [categoryForm, setCategoryForm] = useState<CategoryFormState>(EMPTY_CATEGORY_FORM);
   const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [publishingCategoryId, setPublishingCategoryId] = useState<string | null>(null);
+
+  // Match editing state
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [matchWinnerId, setMatchWinnerId] = useState<string>("");
+  const [matchScore, setMatchScore] = useState<string>("");
+  const [isSavingMatchResult, setIsSavingMatchResult] = useState(false);
+  const [isGeneratingBracketId, setIsGeneratingBracketId] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+
+  // Manual registration state
+  const [manualPlayer1, setManualPlayer1] = useState("");
+  const [manualPlayer2, setManualPlayer2] = useState("");
+  const [isRegisteringManual, setIsRegisteringManual] = useState(false);
+
+  async function handleAddManualRegistration(categoryId: string, format: string) {
+    if (format === "DUO_FIXED" && (!manualPlayer1.trim() || !manualPlayer2.trim())) {
+      setError("Por favor, preencha os nomes de ambos os jogadores.");
+      return;
+    }
+    if (format !== "DUO_FIXED" && !manualPlayer1.trim()) {
+      setError("Por favor, preencha o nome do jogador.");
+      return;
+    }
+
+    setIsRegisteringManual(true);
+    setError(null);
+    try {
+      if (format === "DUO_FIXED") {
+        await createRegistration(categoryId, {
+          customOwnerName: manualPlayer1.trim(),
+          partnerName: manualPlayer2.trim(),
+        });
+      } else {
+        await createRegistration(categoryId, {
+          customPlayerName: manualPlayer1.trim(),
+        });
+      }
+      setManualPlayer1("");
+      setManualPlayer2("");
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível realizar a inscrição manual."));
+    } finally {
+      setIsRegisteringManual(false);
+    }
+  }
+
+  async function handleGeneratePersistentBracket(categoryId: string) {
+    setIsGeneratingBracketId(categoryId);
+    setError(null);
+    try {
+      await generatePersistentBracket(categoryId);
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível gerar o chaveamento."));
+    } finally {
+      setIsGeneratingBracketId(null);
+    }
+  }
+
+  async function handleSaveMatchWinner(matchId: string) {
+    if (!matchWinnerId) return;
+    setIsSavingMatchResult(true);
+    setError(null);
+    try {
+      await updateMatchWinner(matchId, matchWinnerId, matchScore);
+      setEditingMatchId(null);
+      setMatchWinnerId("");
+      setMatchScore("");
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível salvar o vencedor da partida."));
+    } finally {
+      setIsSavingMatchResult(false);
+    }
+  }
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -80,6 +158,9 @@ export function AdminTournamentDetailPage() {
       ]);
       setTournament(detailResult);
       setPendingPayments(paymentsResult);
+      if (detailResult.categories.length > 0) {
+        setSelectedCategoryId((prev) => prev || detailResult.categories[0].id);
+      }
 
       if (!isEditing) {
         setTournamentForm({
@@ -87,6 +168,7 @@ export function AdminTournamentDetailPage() {
           description: detailResult.description ?? "",
           eventDate: toDatetimeLocalValue(detailResult.eventDate),
           location: detailResult.location,
+          status: detailResult.status,
         });
       }
     } catch (err) {
@@ -155,7 +237,7 @@ export function AdminTournamentDetailPage() {
     }
   }
 
-  async function handleCreateCategory(event: FormEvent<HTMLFormElement>) {
+  async function handleCategorySubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!id) return;
 
@@ -163,7 +245,7 @@ export function AdminTournamentDetailPage() {
     setError(null);
 
     try {
-      await createCategory(id, {
+      const payload = {
         name: categoryForm.name.trim(),
         format: categoryForm.format,
         entryFee: Number(categoryForm.entryFee),
@@ -174,14 +256,61 @@ export function AdminTournamentDetailPage() {
         refundPartialBeforeDays: categoryForm.refundPartialBeforeDays ? Number(categoryForm.refundPartialBeforeDays) : undefined,
         refundPartialPercent: categoryForm.refundPartialPercent ? Number(categoryForm.refundPartialPercent) : undefined,
         cancellationDeadlineHours: Number(categoryForm.cancellationDeadlineHours),
-      });
+      };
+
+      if (editingCategoryId) {
+        await updateCategory(editingCategoryId, payload);
+        setEditingCategoryId(null);
+      } else {
+        await createCategory(id, payload);
+      }
 
       setCategoryForm(EMPTY_CATEGORY_FORM);
       await loadData();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Não foi possível criar a categoria."));
+      setError(getApiErrorMessage(err, "Não foi possível salvar a categoria."));
     } finally {
       setIsSavingCategory(false);
+    }
+  }
+
+  function handleSelectCategory(cat: TournamentDetailCategory) {
+    setEditingCategoryId(cat.id);
+    setCategoryForm({
+      name: cat.name,
+      format: cat.format,
+      entryFee: String(cat.entryFee),
+      maxSlots: String(cat.maxSlots),
+      registrationDeadline: toDatetimeLocalValue(cat.registrationDeadline),
+      reservationTtlMinutes: "20",
+      refundFullBeforeDays: "",
+      refundPartialBeforeDays: "",
+      refundPartialPercent: "",
+      cancellationDeadlineHours: "48",
+    });
+    setError(null);
+  }
+
+  function handleResetCategoryForm() {
+    setEditingCategoryId(null);
+    setCategoryForm(EMPTY_CATEGORY_FORM);
+  }
+
+  async function handleDeleteCategory(categoryId: string) {
+    const confirmed = window.confirm(
+      "Tem certeza que deseja excluir esta categoria? Todas as inscrições e pagamentos vinculados a ela serão deletados permanentemente do banco de dados.",
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    try {
+      await deleteCategory(categoryId);
+      if (editingCategoryId === categoryId) {
+        handleResetCategoryForm();
+      }
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível excluir a categoria."));
     }
   }
 
@@ -340,6 +469,20 @@ export function AdminTournamentDetailPage() {
 
           {isEditing ? (
             <form onSubmit={handleTournamentSubmit} className="space-y-4">
+              <FieldLabel label="Status">
+                <select
+                  value={tournamentForm.status || "DRAFT"}
+                  onChange={(e) => setTournamentForm({ ...tournamentForm, status: e.target.value as any })}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-emerald-400"
+                >
+                  <option value="DRAFT">Rascunho</option>
+                  <option value="PUBLISHED">Inscrições abertas</option>
+                  <option value="REGISTRATIONS_CLOSED">Inscrições encerradas</option>
+                  <option value="CANCELLED">Cancelado</option>
+                  <option value="FINISHED">Finalizado</option>
+                </select>
+              </FieldLabel>
+
               <FieldLabel label="Nome">
                 <input
                   required
@@ -435,8 +578,21 @@ export function AdminTournamentDetailPage() {
         <h2 className="text-2xl font-bold text-white">Categorias do Torneio</h2>
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Adicionar Nova Categoria</h3>
-          <form onSubmit={handleCreateCategory} className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">
+              {editingCategoryId ? "Editar Categoria" : "Adicionar Nova Categoria"}
+            </h3>
+            {editingCategoryId && (
+              <button
+                type="button"
+                onClick={handleResetCategoryForm}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Cancelar Edição
+              </button>
+            )}
+          </div>
+          <form onSubmit={handleCategorySubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <FieldLabel label="Nome da categoria">
                 <input
@@ -479,21 +635,42 @@ export function AdminTournamentDetailPage() {
                 />
               </FieldLabel>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
               <button
                 type="submit"
                 disabled={isSavingCategory}
                 className="rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
               >
-                {isSavingCategory ? "Criando..." : "Criar Categoria"}
+                {isSavingCategory ? "Salvando..." : editingCategoryId ? "Salvar Alterações" : "Criar Categoria"}
               </button>
             </div>
           </form>
         </div>
 
-        <div className="space-y-4">
-          {tournament.categories.map((category) => (
-            <div key={category.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
+        <div className="space-y-6">
+          {tournament.categories.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+              {tournament.categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCategoryId(c.id)}
+                  type="button"
+                  className={`rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
+                    selectedCategoryId === c.id
+                      ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+                      : "bg-slate-900/60 text-slate-400 hover:text-white border border-white/5"
+                  }`}
+                >
+                  {c.name} · {formatLabel(c.format)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {tournament.categories
+            .filter((c) => c.id === selectedCategoryId)
+            .map((category) => (
+              <div key={category.id} className="rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
                   <h4 className="text-xl font-bold text-white">{category.name}</h4>
@@ -503,6 +680,24 @@ export function AdminTournamentDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectCategory(category)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                    Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteCategory(category.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/20"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Excluir
+                  </button>
+
                   {category.status === "DRAFT" && (
                     <button
                       onClick={() => handlePublishCategory(category.id)}
@@ -516,6 +711,185 @@ export function AdminTournamentDetailPage() {
                     {statusLabel(category.status)}
                   </span>
                 </div>
+              </div>
+
+              {/* Admin Manual Registration Form */}
+              <div className="mt-5 border-t border-slate-800 pt-5 bg-slate-900/20 p-4 rounded-xl">
+                <h5 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-1.5">
+                  Inscrever Jogador/Dupla Manualmente
+                </h5>
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                  {category.format === "DUO_FIXED" ? (
+                    <>
+                      <div className="flex-1 space-y-1">
+                        <label className="block text-xs text-slate-400 font-semibold uppercase tracking-wider">Jogador 1</label>
+                        <input
+                          type="text"
+                          value={manualPlayer1}
+                          onChange={(e) => setManualPlayer1(e.target.value)}
+                          placeholder="Nome do Jogador 1"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-emerald-400"
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <label className="block text-xs text-slate-400 font-semibold uppercase tracking-wider">Jogador 2</label>
+                        <input
+                          type="text"
+                          value={manualPlayer2}
+                          onChange={(e) => setManualPlayer2(e.target.value)}
+                          placeholder="Nome do Jogador 2"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-emerald-400"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex-1 space-y-1">
+                      <label className="block text-xs text-slate-400 font-semibold uppercase tracking-wider">Jogador</label>
+                      <input
+                        type="text"
+                        value={manualPlayer1}
+                        onChange={(e) => setManualPlayer1(e.target.value)}
+                        placeholder="Nome do Jogador"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-emerald-400"
+                      />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleAddManualRegistration(category.id, category.format)}
+                    disabled={isRegisteringManual}
+                    className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50 h-9 shrink-0"
+                  >
+                    {isRegisteringManual ? "Inscrevendo..." : "Inscrever"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Persistent Bracket Section */}
+              <div className="mt-5 border-t border-slate-800 pt-5">
+                {category.winnerName && (
+                  <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-400 font-bold flex items-center gap-2">
+                    🏆 Campeão da Categoria: {category.winnerName}
+                  </div>
+                )}
+
+                {category.matches && category.matches.length > 0 ? (
+                  <div className="space-y-4">
+                    <h5 className="text-sm font-bold text-slate-300">Chaveamento do Torneio</h5>
+                    {Array.from(new Set(category.matches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                      const roundMatches = category.matches!.filter((m) => m.round === roundNum);
+                      return (
+                        <div key={roundNum} className="space-y-2">
+                          <h6 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                            Rodada {roundNum} {roundNum === Math.max(...category.matches!.map((m) => m.round)) && " (Final)"}
+                          </h6>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {roundMatches.map((match) => {
+                              const isEditingMatch = editingMatchId === match.id;
+                              return (
+                                <div key={match.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm">
+                                  <div className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-center">
+                                      <span className={match.winnerId === match.competitorAId ? "text-emerald-400 font-bold" : "text-slate-300"}>
+                                        {match.competitorAName || "A definir"}
+                                      </span>
+                                      {match.winnerId === match.competitorAId && <span className="text-xs text-emerald-400 font-semibold">(Vencedor)</span>}
+                                    </div>
+                                    <div className="flex justify-between items-center border-t border-slate-800/50 pt-2">
+                                      <span className={match.winnerId === match.competitorBId ? "text-emerald-400 font-bold" : "text-slate-300"}>
+                                        {match.competitorBName || "A definir"}
+                                      </span>
+                                      {match.winnerId === match.competitorBId && <span className="text-xs text-emerald-400 font-semibold">(Vencedor)</span>}
+                                    </div>
+
+                                    {match.score && (
+                                      <div className="mt-2 text-xs text-slate-400 border-t border-slate-800 pt-2">
+                                        Placar: <span className="text-white font-medium">{match.score}</span>
+                                      </div>
+                                    )}
+
+                                    {!match.winnerId && match.competitorAId && match.competitorBId && (
+                                      <div className="mt-2 border-t border-slate-800 pt-2">
+                                        {isEditingMatch ? (
+                                          <div className="space-y-3 pt-1">
+                                            <div>
+                                              <label className="block text-xs text-slate-400 mb-1">Vencedor</label>
+                                              <select
+                                                value={matchWinnerId}
+                                                onChange={(e) => setMatchWinnerId(e.target.value)}
+                                                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                              >
+                                                <option value={match.competitorAId || ""}>{match.competitorAName}</option>
+                                                <option value={match.competitorBId || ""}>{match.competitorBName}</option>
+                                              </select>
+                                            </div>
+                                            <div>
+                                              <label className="block text-xs text-slate-400 mb-1">Placar (ex: 21-15, 21-18)</label>
+                                              <input
+                                                type="text"
+                                                value={matchScore}
+                                                onChange={(e) => setMatchScore(e.target.value)}
+                                                placeholder="Score"
+                                                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                              />
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                              <button
+                                                type="button"
+                                                onClick={() => setEditingMatchId(null)}
+                                                className="rounded-lg bg-slate-800 px-3 py-1 text-xs text-slate-300"
+                                              >
+                                                Cancelar
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleSaveMatchWinner(match.id)}
+                                                disabled={isSavingMatchResult}
+                                                className="rounded-lg bg-emerald-500 px-3 py-1 text-xs text-slate-950 font-bold"
+                                              >
+                                                {isSavingMatchResult ? "Salvando..." : "Confirmar"}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingMatchId(match.id);
+                                              setMatchWinnerId(match.competitorAId || "");
+                                              setMatchScore("");
+                                            }}
+                                            className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/5 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/10"
+                                          >
+                                            Informar Resultado
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  category.status !== "DRAFT" && (
+                    <div className="flex flex-col items-center py-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/20">
+                      <p className="text-xs text-slate-400 mb-3">O chaveamento oficial ainda não foi gerado.</p>
+                      <button
+                        type="button"
+                        onClick={() => handleGeneratePersistentBracket(category.id)}
+                        disabled={isGeneratingBracketId === category.id || category.occupiedSlots < 2}
+                        className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
+                      >
+                        {isGeneratingBracketId === category.id ? "Gerando..." : "Gerar Chaveamento Oficial"}
+                      </button>
+                    </div>
+                  )
+                )}
               </div>
             </div>
           ))}

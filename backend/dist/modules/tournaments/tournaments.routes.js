@@ -16,4 +16,5 @@ exports.tournamentsRoutes.post("/", authenticate_1.authenticate, (0, authorize_1
 exports.tournamentsRoutes.patch("/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(tournaments_controller_1.updateTournamentHandler));
 exports.tournamentsRoutes.post("/:id/publish", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(tournaments_controller_1.publishTournamentHandler));
 exports.tournamentsRoutes.delete("/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(tournaments_controller_1.cancelTournamentHandler));
+exports.tournamentsRoutes.get("/:id/pending-payments", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(tournaments_controller_1.getTournamentPendingPaymentsHandler));
 //# sourceMappingURL=tournaments.routes.js.map

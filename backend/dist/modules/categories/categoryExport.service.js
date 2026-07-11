@@ -19,7 +19,7 @@ async function exportCategoryRegistrantsCsv(categoryId) {
     if (category.format === "DUO_FIXED") {
         rows.push("Dono da dupla,E-mail do dono,Telefone do dono,Nome do parceiro,Status,Valor devido");
         for (const team of category.teams) {
-            rows.push([team.ownerUser.name, team.ownerUser.email, team.ownerUser.phone ?? "", team.partnerName, team.status, team.amountDue.toString()]
+            rows.push([team.customOwnerName ?? team.ownerUser.name, team.ownerUser.email, team.ownerUser.phone ?? "", team.partnerName, team.status, team.amountDue.toString()]
                 .map(escapeCsvField)
                 .join(","));
         }
@@ -28,7 +28,7 @@ async function exportCategoryRegistrantsCsv(categoryId) {
         rows.push("Nome,E-mail,Telefone,Status,Valor devido");
         for (const registration of category.registrations) {
             rows.push([
-                registration.user.name,
+                registration.customPlayerName ?? registration.user.name,
                 registration.user.email,
                 registration.user.phone ?? "",
                 registration.status,

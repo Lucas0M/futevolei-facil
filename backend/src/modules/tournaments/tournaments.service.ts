@@ -2,6 +2,7 @@ import { Prisma, EntityStatus, UserRole } from "@prisma/client";
 import { prisma } from "../../prisma/client";
 import { AppError } from "../../shared/errors/AppError";
 import { CreateTournamentInput, UpdateTournamentInput, ListTournamentsQuery } from "./tournaments.schema";
+import { formatMatchupNames } from "../categories/categories.service";
 
 // Tournaments are now just the umbrella event - all competition rules
 // (format, fee, slots, deadlines) live on Category. See categories.service.ts.
@@ -26,22 +27,76 @@ export async function updateTournament(tournamentId: string, input: UpdateTourna
   return prisma.tournament.update({ where: { id: tournamentId }, data: input });
 }
 
-export async function cancelTournament(tournamentId: string) {
+export async function deleteTournament(tournamentId: string) {
   const tournament = await findTournamentOrThrow(tournamentId);
 
-  if (tournament.status === EntityStatus.CANCELLED) {
-    throw new AppError("Este torneio já está cancelado.", 400, "TOURNAMENT_ALREADY_CANCELLED");
-  }
-
-  // Cancelling the whole event also cancels every category inside it, so
-  // registrations/teams don't remain open on a tournament that no longer exists.
   return prisma.$transaction(async (tx) => {
-    await tx.category.updateMany({
-      where: { tournamentId, status: { not: EntityStatus.CANCELLED } },
-      data: { status: EntityStatus.CANCELLED },
+    // 1. Get all categories
+    const categories = await tx.category.findMany({
+      where: { tournamentId },
+      select: { id: true },
     });
+    const categoryIds = categories.map((c) => c.id);
 
-    return tx.tournament.update({ where: { id: tournamentId }, data: { status: EntityStatus.CANCELLED } });
+    if (categoryIds.length > 0) {
+      // 2. Get all registrations and teams
+      const registrations = await tx.registration.findMany({
+        where: { categoryId: { in: categoryIds } },
+        select: { id: true },
+      });
+      const registrationIds = registrations.map((r) => r.id);
+
+      const teams = await tx.team.findMany({
+        where: { categoryId: { in: categoryIds } },
+        select: { id: true },
+      });
+      const teamIds = teams.map((t) => t.id);
+
+      // 3. Get all payments
+      const payments = await tx.payment.findMany({
+        where: {
+          OR: [
+            { registrationId: { in: registrationIds } },
+            { teamId: { in: teamIds } },
+          ],
+        },
+        select: { id: true },
+      });
+      const paymentIds = payments.map((p) => p.id);
+
+      if (paymentIds.length > 0) {
+        // 4. Delete webhook events
+        await tx.webhookEvent.deleteMany({
+          where: { paymentId: { in: paymentIds } },
+        });
+        // 5. Delete payments
+        await tx.payment.deleteMany({
+          where: { id: { in: paymentIds } },
+        });
+      }
+
+      if (registrationIds.length > 0) {
+        await tx.registration.deleteMany({
+          where: { id: { in: registrationIds } },
+        });
+      }
+
+      if (teamIds.length > 0) {
+        await tx.team.deleteMany({
+          where: { id: { in: teamIds } },
+        });
+      }
+
+      // 6. Delete categories
+      await tx.category.deleteMany({
+        where: { id: { in: categoryIds } },
+      });
+    }
+
+    // 7. Delete tournament
+    return tx.tournament.delete({
+      where: { id: tournamentId },
+    });
   });
 }
 
@@ -63,10 +118,19 @@ export async function listTournaments({ page, pageSize, status, fromDate, toDate
   const where: Prisma.TournamentWhereInput = {};
 
   if (requesterRole !== "ADMIN") {
-    where.status = { not: EntityStatus.DRAFT };
-  }
-  if (status) {
-    where.status = status;
+    if (status) {
+      if (status === EntityStatus.DRAFT) {
+        where.status = { in: [] }; // Return empty
+      } else {
+        where.status = status;
+      }
+    } else {
+      where.status = { notIn: [EntityStatus.DRAFT, EntityStatus.CANCELLED] };
+    }
+  } else {
+    if (status) {
+      where.status = status;
+    }
   }
   if (fromDate || toDate) {
     where.eventDate = {
@@ -90,7 +154,13 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
     where: { id: tournamentId },
     include: {
       categories: {
-        include: { registrations: { select: { status: true } }, teams: { select: { status: true } } },
+        include: {
+          registrations: { select: { status: true } },
+          teams: { select: { status: true } },
+          matches: {
+            orderBy: [{ round: "asc" }, { position: "asc" }],
+          },
+        },
       },
     },
   });
@@ -130,6 +200,8 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
         availableSlots: Math.max(c.maxSlots - occupiedSlots, 0),
         registrationDeadline: c.registrationDeadline,
         status: c.status,
+        winnerName: c.winnerName,
+        matches: formatMatchupNames(c.matches),
       };
     }),
   };

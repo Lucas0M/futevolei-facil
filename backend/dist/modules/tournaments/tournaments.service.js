@@ -2,13 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createTournament = createTournament;
 exports.updateTournament = updateTournament;
-exports.cancelTournament = cancelTournament;
+exports.deleteTournament = deleteTournament;
 exports.publishTournament = publishTournament;
 exports.listTournaments = listTournaments;
 exports.getTournamentDetail = getTournamentDetail;
+exports.getTournamentPendingPayments = getTournamentPendingPayments;
 const client_1 = require("@prisma/client");
 const client_2 = require("../../prisma/client");
 const AppError_1 = require("../../shared/errors/AppError");
+const categories_service_1 = require("../categories/categories.service");
 // Tournaments are now just the umbrella event - all competition rules
 // (format, fee, slots, deadlines) live on Category. See categories.service.ts.
 async function createTournament(adminId, input) {
@@ -27,19 +29,67 @@ async function updateTournament(tournamentId, input) {
     }
     return client_2.prisma.tournament.update({ where: { id: tournamentId }, data: input });
 }
-async function cancelTournament(tournamentId) {
+async function deleteTournament(tournamentId) {
     const tournament = await findTournamentOrThrow(tournamentId);
-    if (tournament.status === client_1.EntityStatus.CANCELLED) {
-        throw new AppError_1.AppError("Este torneio já está cancelado.", 400, "TOURNAMENT_ALREADY_CANCELLED");
-    }
-    // Cancelling the whole event also cancels every category inside it, so
-    // registrations/teams don't remain open on a tournament that no longer exists.
     return client_2.prisma.$transaction(async (tx) => {
-        await tx.category.updateMany({
-            where: { tournamentId, status: { not: client_1.EntityStatus.CANCELLED } },
-            data: { status: client_1.EntityStatus.CANCELLED },
+        // 1. Get all categories
+        const categories = await tx.category.findMany({
+            where: { tournamentId },
+            select: { id: true },
         });
-        return tx.tournament.update({ where: { id: tournamentId }, data: { status: client_1.EntityStatus.CANCELLED } });
+        const categoryIds = categories.map((c) => c.id);
+        if (categoryIds.length > 0) {
+            // 2. Get all registrations and teams
+            const registrations = await tx.registration.findMany({
+                where: { categoryId: { in: categoryIds } },
+                select: { id: true },
+            });
+            const registrationIds = registrations.map((r) => r.id);
+            const teams = await tx.team.findMany({
+                where: { categoryId: { in: categoryIds } },
+                select: { id: true },
+            });
+            const teamIds = teams.map((t) => t.id);
+            // 3. Get all payments
+            const payments = await tx.payment.findMany({
+                where: {
+                    OR: [
+                        { registrationId: { in: registrationIds } },
+                        { teamId: { in: teamIds } },
+                    ],
+                },
+                select: { id: true },
+            });
+            const paymentIds = payments.map((p) => p.id);
+            if (paymentIds.length > 0) {
+                // 4. Delete webhook events
+                await tx.webhookEvent.deleteMany({
+                    where: { paymentId: { in: paymentIds } },
+                });
+                // 5. Delete payments
+                await tx.payment.deleteMany({
+                    where: { id: { in: paymentIds } },
+                });
+            }
+            if (registrationIds.length > 0) {
+                await tx.registration.deleteMany({
+                    where: { id: { in: registrationIds } },
+                });
+            }
+            if (teamIds.length > 0) {
+                await tx.team.deleteMany({
+                    where: { id: { in: teamIds } },
+                });
+            }
+            // 6. Delete categories
+            await tx.category.deleteMany({
+                where: { id: { in: categoryIds } },
+            });
+        }
+        // 7. Delete tournament
+        return tx.tournament.delete({
+            where: { id: tournamentId },
+        });
     });
 }
 async function publishTournament(tournamentId) {
@@ -52,10 +102,22 @@ async function publishTournament(tournamentId) {
 async function listTournaments({ page, pageSize, status, fromDate, toDate, requesterRole }) {
     const where = {};
     if (requesterRole !== "ADMIN") {
-        where.status = { not: client_1.EntityStatus.DRAFT };
+        if (status) {
+            if (status === client_1.EntityStatus.DRAFT) {
+                where.status = { in: [] }; // Return empty
+            }
+            else {
+                where.status = status;
+            }
+        }
+        else {
+            where.status = { notIn: [client_1.EntityStatus.DRAFT, client_1.EntityStatus.CANCELLED] };
+        }
     }
-    if (status) {
-        where.status = status;
+    else {
+        if (status) {
+            where.status = status;
+        }
     }
     if (fromDate || toDate) {
         where.eventDate = {
@@ -76,7 +138,13 @@ async function getTournamentDetail(tournamentId, requesterRole) {
         where: { id: tournamentId },
         include: {
             categories: {
-                include: { registrations: { select: { status: true } }, teams: { select: { status: true } } },
+                include: {
+                    registrations: { select: { status: true } },
+                    teams: { select: { status: true } },
+                    matches: {
+                        orderBy: [{ round: "asc" }, { position: "asc" }],
+                    },
+                },
             },
         },
     });
@@ -110,6 +178,8 @@ async function getTournamentDetail(tournamentId, requesterRole) {
                 availableSlots: Math.max(c.maxSlots - occupiedSlots, 0),
                 registrationDeadline: c.registrationDeadline,
                 status: c.status,
+                winnerName: c.winnerName,
+                matches: (0, categories_service_1.formatMatchupNames)(c.matches),
             };
         }),
     };
@@ -120,5 +190,55 @@ async function findTournamentOrThrow(tournamentId) {
         throw new AppError_1.AppError("Torneio não encontrado.", 404, "TOURNAMENT_NOT_FOUND");
     }
     return tournament;
+}
+async function getTournamentPendingPayments(tournamentId) {
+    const tournament = await findTournamentOrThrow(tournamentId);
+    const [pendingRegistrations, pendingTeams] = await client_2.prisma.$transaction([
+        client_2.prisma.registration.findMany({
+            where: {
+                status: "PENDING_PAYMENT",
+                category: { tournamentId }
+            },
+            include: {
+                user: { select: { name: true } },
+                category: {
+                    select: { name: true, tournament: { select: { name: true } } },
+                },
+            },
+            orderBy: { createdAt: "asc" },
+        }),
+        client_2.prisma.team.findMany({
+            where: {
+                status: "PENDING_PAYMENT",
+                category: { tournamentId }
+            },
+            include: {
+                ownerUser: { select: { name: true } },
+                category: {
+                    select: { name: true, tournament: { select: { name: true } } },
+                },
+            },
+            orderBy: { createdAt: "asc" },
+        }),
+    ]);
+    const pendingConfirmations = [
+        ...pendingRegistrations.map((r) => ({
+            kind: "registration",
+            id: r.id,
+            tournamentName: `${r.category.tournament.name} - ${r.category.name}`,
+            playerName: r.user.name,
+            amountDue: r.amountDue,
+            createdAt: r.createdAt,
+        })),
+        ...pendingTeams.map((t) => ({
+            kind: "team",
+            id: t.id,
+            tournamentName: `${t.category.tournament.name} - ${t.category.name}`,
+            playerName: `${t.ownerUser.name} + ${t.partnerName}`,
+            amountDue: t.amountDue,
+            createdAt: t.createdAt,
+        })),
+    ].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return pendingConfirmations;
 }
 //# sourceMappingURL=tournaments.service.js.map

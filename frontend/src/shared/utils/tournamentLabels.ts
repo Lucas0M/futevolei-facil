@@ -9,7 +9,7 @@ export function formatLabel(format: TournamentFormat): string {
     case "DUO_FIXED":
       return "Dupla formada";
     case "DUO_RANDOM":
-      return "Cumbuca (sorteio de duplas)";
+      return "Dupla sorteada";
   }
 }
 

@@ -8,6 +8,7 @@ import {
   slotsUnitLabel,
   statusBadgeClasses,
   statusLabel,
+  formatLabel,
 } from "../../../shared/utils/tournamentLabels";
 import { RegistrationActionCard } from "../components/RegistrationActionCard";
 import type {
@@ -23,6 +24,7 @@ export function TournamentDetailPage() {
   const [tournament, setTournament] = useState<TournamentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const fetchDetail = useCallback(async () => {
     if (!id) return;
@@ -32,6 +34,9 @@ export function TournamentDetailPage() {
     try {
       const result = await getTournamentDetail(id);
       setTournament(result);
+      if (result.categories.length > 0) {
+        setSelectedCategoryId((prev) => prev || result.categories[0].id);
+      }
     } catch (err) {
       setError(
         getApiErrorMessage(err, "Não foi possível carregar este torneio."),
@@ -138,13 +143,33 @@ export function TournamentDetailPage() {
             Este torneio ainda não tem categorias cadastradas.
           </div>
         ) : (
-          tournament.categories.map((category) => (
-            <CategoryBlock
-              key={category.id}
-              category={category}
-              onChanged={fetchDetail}
-            />
-          ))
+          <div className="space-y-6">
+            <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3">
+              {tournament.categories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCategoryId(c.id)}
+                  className={`rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
+                    selectedCategoryId === c.id
+                      ? "bg-emerald-500 text-slate-950 font-bold shadow-[0_0_15px_rgba(16,185,129,0.25)]"
+                      : "bg-slate-900/60 text-slate-400 hover:text-white border border-white/5"
+                  }`}
+                >
+                  {c.name} · {formatLabel(c.format)}
+                </button>
+              ))}
+            </div>
+
+            {tournament.categories
+              .filter((c) => c.id === selectedCategoryId)
+              .map((category) => (
+                <CategoryBlock
+                  key={category.id}
+                  category={category}
+                  onChanged={fetchDetail}
+                />
+              ))}
+          </div>
         )}
       </div>
     </div>
@@ -263,6 +288,54 @@ function CategoryBlock({
           onRegistrationChanged={onChanged}
         />
       </div>
+
+      {/* Persistent Bracket View (Public) */}
+      {category.winnerName && (
+        <div className="mt-6 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-emerald-400 font-bold flex items-center gap-2">
+          🏆 Campeão da Categoria: {category.winnerName}
+        </div>
+      )}
+
+      {category.matches && category.matches.length > 0 && (
+        <div className="mt-6 border-t border-slate-800 pt-5 space-y-4">
+          <h4 className="text-lg font-bold text-white">Chaveamento Oficial</h4>
+          {Array.from(new Set(category.matches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+            const roundMatches = category.matches!.filter((m) => m.round === roundNum);
+            return (
+              <div key={roundNum} className="space-y-2">
+                <h5 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Rodada {roundNum} {roundNum === Math.max(...category.matches!.map((m) => m.round)) && " (Final)"}
+                </h5>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {roundMatches.map((match) => (
+                    <div key={match.id} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className={match.winnerId === match.competitorAId ? "text-emerald-400 font-bold" : "text-slate-300"}>
+                            {match.competitorAName || "A definir"}
+                          </span>
+                          {match.winnerId === match.competitorAId && <span className="text-xs text-emerald-400 font-semibold">(Vencedor)</span>}
+                        </div>
+                        <div className="flex justify-between items-center border-t border-slate-800/55 pt-2">
+                          <span className={match.winnerId === match.competitorBId ? "text-emerald-400 font-bold" : "text-slate-300"}>
+                            {match.competitorBName || "A definir"}
+                          </span>
+                          {match.winnerId === match.competitorBId && <span className="text-xs text-emerald-400 font-semibold">(Vencedor)</span>}
+                        </div>
+                        {match.score && (
+                          <div className="mt-2 text-xs text-slate-400 border-t border-slate-800 pt-2">
+                            Placar: <span className="text-white font-medium">{match.score}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

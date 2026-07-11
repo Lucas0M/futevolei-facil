@@ -43,10 +43,11 @@ exports.listMyRegistrationsHandler = listMyRegistrationsHandler;
 const registrationsService = __importStar(require("./registrations.service"));
 const registrations_schema_1 = require("./registrations.schema");
 async function createRegistrationHandler(req, res) {
-    // partnerName is only required for DUO_FIXED categories; the service
-    // decides whether it's needed based on the category's format.
-    const parsed = registrations_schema_1.createTeamRegistrationSchema.partial().parse(req.body ?? {});
-    const registration = await registrationsService.createRegistration(req.params.categoryId, req.user.id, parsed);
+    const isDuo = req.body?.partnerName !== undefined;
+    const parsed = isDuo
+        ? registrations_schema_1.createTeamRegistrationSchema.parse(req.body)
+        : registrations_schema_1.createIndividualRegistrationSchema.parse(req.body ?? {});
+    const registration = await registrationsService.createRegistration(req.params.categoryId, req.user.id, req.user.role, parsed);
     res.status(201).json(registration);
 }
 async function cancelOwnRegistrationHandler(req, res) {

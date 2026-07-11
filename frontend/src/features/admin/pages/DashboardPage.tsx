@@ -7,7 +7,6 @@ import {
 } from "react";
 import {
   ArrowRight,
-  CheckCircle2,
   Clock,
   DollarSign,
   PencilLine,
@@ -19,7 +18,6 @@ import {
   X,
   Trophy,
   Users,
-  AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDashboardSummary } from "../../../api/dashboard.api";
@@ -121,6 +119,7 @@ export function DashboardPage() {
       description: tournament.description ?? "",
       eventDate: toDatetimeLocalValue(tournament.eventDate),
       location: tournament.location,
+      status: tournament.status,
     });
     setError(null);
   }
@@ -158,7 +157,7 @@ export function DashboardPage() {
 
   async function handleDeleteTournament(tournamentId: string) {
     const confirmed = window.confirm(
-      "Tem certeza que deseja excluir este torneio? Ele será cancelado no sistema.",
+      "Tem certeza que deseja excluir este torneio? Ele e todas as suas categorias, inscrições e pagamentos serão DELETADOS PERMANENTEMENTE do banco de dados.",
     );
     if (!confirmed) {
       return;
@@ -596,6 +595,27 @@ function TournamentManagementPanel({
           </div>
 
           <div className="mt-5 space-y-4">
+            {editingTournamentId && (
+              <FieldLabel label="Status">
+                <select
+                  value={tournamentForm.status || "DRAFT"}
+                  onChange={(event) =>
+                    onTournamentFormChange({
+                      ...tournamentForm,
+                      status: event.target.value as any,
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
+                >
+                  <option value="DRAFT">Rascunho</option>
+                  <option value="PUBLISHED">Inscrições abertas</option>
+                  <option value="REGISTRATIONS_CLOSED">Inscrições encerradas</option>
+                  <option value="CANCELLED">Cancelado</option>
+                  <option value="FINISHED">Finalizado</option>
+                </select>
+              </FieldLabel>
+            )}
+
             <FieldLabel label="Nome">
               <input
                 required

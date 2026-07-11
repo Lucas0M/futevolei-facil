@@ -5,6 +5,7 @@ import {
   cancelRegistration,
   cancelTeam,
 } from "../../../api/registrations.api";
+import { checkoutRegistration, checkoutTeam } from "../../../api/payments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import type {
   TournamentDetailCategory,
@@ -137,8 +138,16 @@ export function RegistrationActionCard({
         status: "PENDING_PAYMENT",
       });
 
-      setSuccessMessage("Inscrição realizada com sucesso!");
+      setSuccessMessage("Inscrição realizada com sucesso! Redirecionando para o pagamento...");
       onRegistrationChanged();
+
+      if (category.format !== "DUO_FIXED") {
+        const res = await checkoutRegistration(created.id);
+        if (res.checkoutUrl) {
+          window.location.href = res.checkoutUrl;
+          return;
+        }
+      }
     } catch (err) {
       setError(
         getApiErrorMessage(err, "Não foi possível concluir a inscrição."),
@@ -170,6 +179,32 @@ export function RegistrationActionCard({
         getApiErrorMessage(err, "Não foi possível cancelar a inscrição."),
       );
     } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleCheckout(portion?: "FULL" | "OWNER_SHARE") {
+    if (!myEntry) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      let checkoutUrl = "";
+      if (myEntry.kind === "registration") {
+        const res = await checkoutRegistration(myEntry.id);
+        checkoutUrl = res.checkoutUrl;
+      } else {
+        const res = await checkoutTeam(myEntry.id, portion || "FULL");
+        checkoutUrl = res.checkoutUrl;
+      }
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        throw new Error("Não foi possível obter o link de checkout.");
+      }
+    } catch (err) {
+      setError(
+        getApiErrorMessage(err, "Não foi possível iniciar o pagamento com Mercado Pago."),
+      );
       setIsSubmitting(false);
     }
   }
@@ -206,13 +241,46 @@ export function RegistrationActionCard({
             Status: {STATUS_LABELS[myEntry.status]}
           </p>
 
-          <button
-            onClick={handleCancel}
-            disabled={isSubmitting}
-            className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-2 font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
-          >
-            {isSubmitting ? "Cancelando..." : "Cancelar minha inscrição"}
-          </button>
+          {myEntry.status === "PENDING_PAYMENT" && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {category.format === "DUO_FIXED" ? (
+                <>
+                  <button
+                    onClick={() => handleCheckout("FULL")}
+                    disabled={isSubmitting}
+                    className="rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-50"
+                  >
+                    Pagar Dupla Completa (R$ {category.entryFee})
+                  </button>
+                  <button
+                    onClick={() => handleCheckout("OWNER_SHARE")}
+                    disabled={isSubmitting}
+                    className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-400 transition hover:bg-emerald-500/20 disabled:opacity-50"
+                  >
+                    Pagar Minha Parte (R$ {(Number(category.entryFee) / 2).toFixed(2)})
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => handleCheckout()}
+                  disabled={isSubmitting}
+                  className="rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  Pagar Inscrição (R$ {category.entryFee})
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="mt-5 border-t border-slate-800 pt-4">
+            <button
+              onClick={handleCancel}
+              disabled={isSubmitting}
+              className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {isSubmitting ? "Processando..." : "Cancelar minha inscrição"}
+            </button>
+          </div>
         </div>
       ) : !canRegister ? (
         <p className="text-slate-400">

@@ -15,7 +15,7 @@ export async function updateTournamentHandler(req: Request, res: Response) {
 }
 
 export async function cancelTournamentHandler(req: Request, res: Response) {
-  const tournament = await tournamentsService.cancelTournament(req.params.id);
+  const tournament = await tournamentsService.deleteTournament(req.params.id);
   res.status(200).json(tournament);
 }
 

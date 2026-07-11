@@ -103,7 +103,7 @@ export async function confirmTeamPayment(teamId: string, input: ConfirmTeamPayme
     }
   }
 
-  const amount = portion === "FULL" ? team.amountDue : (team.amountDue as Prisma.Decimal).div(2);
+  const amount = portion === "FULL" ? (team.amountDue as Prisma.Decimal).mul(2) : team.amountDue;
   const existingPayment = team.payments.find((p) => p.teamPortion === portion);
 
   return prisma.$transaction(async (tx) => {
