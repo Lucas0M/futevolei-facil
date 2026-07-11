@@ -308,6 +308,7 @@ model Match {
   category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   round           Int
   position        Int
+  bracketType     String   @default("WINNER") // "WINNER", "LOSER", "GRAND_FINAL", "RESET_FINAL"
   competitorAId   String?
   competitorAName String?
   competitorBId   String?

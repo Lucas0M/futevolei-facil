@@ -63,6 +63,8 @@ export interface Match {
   categoryId: string;
   round: number;
   position: number;
+  bracketType: string;
+  label?: string;
   competitorAId: string | null;
   competitorAName: string | null;
   competitorBId: string | null;

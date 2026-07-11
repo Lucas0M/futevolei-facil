@@ -79,6 +79,7 @@ export function AdminTournamentDetailPage() {
   const [isSavingMatchResult, setIsSavingMatchResult] = useState(false);
   const [isGeneratingBracketId, setIsGeneratingBracketId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [activeTabs, setActiveTabs] = useState<Record<string, "WINNER" | "LOSER" | "FINALS">>({});
 
   // Manual registration state
   const [manualPlayer1, setManualPlayer1] = useState("");
@@ -774,106 +775,285 @@ export function AdminTournamentDetailPage() {
                 )}
 
                 {category.matches && category.matches.length > 0 ? (
-                  <div className="space-y-4">
-                    <h5 className="text-sm font-bold text-slate-300">Chaveamento do Torneio</h5>
-                    {Array.from(new Set(category.matches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
-                      const roundMatches = category.matches!.filter((m) => m.round === roundNum);
-                      return (
-                        <div key={roundNum} className="space-y-2">
-                          <h6 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                            Rodada {roundNum} {roundNum === Math.max(...category.matches!.map((m) => m.round)) && " (Final)"}
-                          </h6>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {roundMatches.map((match) => {
-                              const isEditingMatch = editingMatchId === match.id;
-                              return (
-                                <div key={match.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm">
-                                  <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center">
-                                      <span className={match.winnerId === match.competitorAId ? "text-emerald-400 font-bold" : "text-slate-300"}>
-                                        {match.competitorAName || "A definir"}
-                                      </span>
-                                      {match.winnerId === match.competitorAId && <span className="text-xs text-emerald-400 font-semibold">(Vencedor)</span>}
-                                    </div>
-                                    <div className="flex justify-between items-center border-t border-slate-800/50 pt-2">
-                                      <span className={match.winnerId === match.competitorBId ? "text-emerald-400 font-bold" : "text-slate-300"}>
-                                        {match.competitorBName || "A definir"}
-                                      </span>
-                                      {match.winnerId === match.competitorBId && <span className="text-xs text-emerald-400 font-semibold">(Vencedor)</span>}
-                                    </div>
+                  <div className="space-y-6">
+                    <h5 className="text-sm font-bold text-slate-300">Chaveamento do Torneio (Double Elimination)</h5>
+                    {(() => {
+                      const renderMatchCard = (match: any) => {
+                        const isEditingMatch = editingMatchId === match.id;
+                        return (
+                          <div key={match.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm hover:border-slate-700 transition">
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-1">
+                                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                  {match.label || "Jogo"}
+                                </span>
+                                {match.score && (
+                                  <span className="text-[11px] text-slate-400">
+                                    Placar: <span className="text-white font-semibold">{match.score}</span>
+                                  </span>
+                                )}
+                              </div>
 
-                                    {match.score && (
-                                      <div className="mt-2 text-xs text-slate-400 border-t border-slate-800 pt-2">
-                                        Placar: <span className="text-white font-medium">{match.score}</span>
-                                      </div>
-                                    )}
+                              <div className="flex justify-between items-center">
+                                <span className={match.winnerId === match.competitorAId ? "text-emerald-400 font-bold" : "text-slate-300"}>
+                                  {match.competitorAName || "A definir"}
+                                </span>
+                                {match.winnerId === match.competitorAId && <span className="text-xs text-emerald-400 font-semibold">🏆</span>}
+                              </div>
+                              <div className="flex justify-between items-center border-t border-slate-800/30 pt-2">
+                                <span className={match.winnerId === match.competitorBId ? "text-emerald-400 font-bold" : "text-slate-300"}>
+                                  {match.competitorBName || "A definir"}
+                                </span>
+                                {match.winnerId === match.competitorBId && <span className="text-xs text-emerald-400 font-semibold">🏆</span>}
+                              </div>
 
-                                    {!match.winnerId && match.competitorAId && match.competitorBId && (
-                                      <div className="mt-2 border-t border-slate-800 pt-2">
-                                        {isEditingMatch ? (
-                                          <div className="space-y-3 pt-1">
-                                            <div>
-                                              <label className="block text-xs text-slate-400 mb-1">Vencedor</label>
-                                              <select
-                                                value={matchWinnerId}
-                                                onChange={(e) => setMatchWinnerId(e.target.value)}
-                                                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
-                                              >
-                                                <option value={match.competitorAId || ""}>{match.competitorAName}</option>
-                                                <option value={match.competitorBId || ""}>{match.competitorBName}</option>
-                                              </select>
-                                            </div>
-                                            <div>
-                                              <label className="block text-xs text-slate-400 mb-1">Placar (ex: 21-15, 21-18)</label>
-                                              <input
-                                                type="text"
-                                                value={matchScore}
-                                                onChange={(e) => setMatchScore(e.target.value)}
-                                                placeholder="Score"
-                                                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
-                                              />
-                                            </div>
-                                            <div className="flex gap-2 justify-end">
-                                              <button
-                                                type="button"
-                                                onClick={() => setEditingMatchId(null)}
-                                                className="rounded-lg bg-slate-800 px-3 py-1 text-xs text-slate-300"
-                                              >
-                                                Cancelar
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleSaveMatchWinner(match.id)}
-                                                disabled={isSavingMatchResult}
-                                                className="rounded-lg bg-emerald-500 px-3 py-1 text-xs text-slate-950 font-bold"
-                                              >
-                                                {isSavingMatchResult ? "Salvando..." : "Confirmar"}
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setEditingMatchId(match.id);
-                                              setMatchWinnerId(match.competitorAId || "");
-                                              setMatchScore("");
-                                            }}
-                                            className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/5 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/10"
-                                          >
-                                            Informar Resultado
-                                          </button>
-                                        )}
+                              {!match.winnerId && match.competitorAId && match.competitorBId && (
+                                <div className="mt-2 border-t border-slate-800 pt-2">
+                                  {isEditingMatch ? (
+                                    <div className="space-y-3 pt-1">
+                                      <div>
+                                        <label className="block text-xs text-slate-400 mb-1">Vencedor</label>
+                                        <select
+                                          value={matchWinnerId}
+                                          onChange={(e) => setMatchWinnerId(e.target.value)}
+                                          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                        >
+                                          <option value={match.competitorAId || ""}>{match.competitorAName}</option>
+                                          <option value={match.competitorBId || ""}>{match.competitorBName}</option>
+                                        </select>
                                       </div>
-                                    )}
-                                  </div>
+                                      <div>
+                                        <label className="block text-xs text-slate-400 mb-1">Placar (ex: 21-15, 21-18)</label>
+                                        <input
+                                          type="text"
+                                          value={matchScore}
+                                          onChange={(e) => setMatchScore(e.target.value)}
+                                          placeholder="Score"
+                                          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                        />
+                                      </div>
+                                      <div className="flex gap-2 justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingMatchId(null)}
+                                          className="rounded-lg bg-slate-800 px-3 py-1 text-xs text-slate-300"
+                                        >
+                                          Cancelar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveMatchWinner(match.id)}
+                                          disabled={isSavingMatchResult}
+                                          className="rounded-lg bg-emerald-500 px-3 py-1 text-xs text-slate-950 font-bold"
+                                        >
+                                          {isSavingMatchResult ? "Salvando..." : "Confirmar"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingMatchId(match.id);
+                                        setMatchWinnerId(match.competitorAId || "");
+                                        setMatchScore("");
+                                      }}
+                                      className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/5 py-1 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/10"
+                                    >
+                                      Informar Resultado
+                                    </button>
+                                  )}
                                 </div>
-                              );
-                            })}
+                              )}
+                            </div>
                           </div>
+                        );
+                      };
+
+                      const wMatches = category.matches!.filter(m => m.bracketType === "WINNER");
+                      const lMatches = category.matches!.filter(m => m.bracketType === "LOSER");
+                      const gfMatches = category.matches!.filter(m => m.bracketType === "GRAND_FINAL" || m.bracketType === "RESET_FINAL");
+                      const tpMatches = category.matches!.filter(m => m.bracketType === "THIRD_PLACE");
+
+                      const totalWBRounds = wMatches.length > 0 ? Math.max(...wMatches.map((m) => m.round)) : 1;
+                      const totalLBRounds = lMatches.length > 0 ? Math.max(...lMatches.map((m) => m.round)) : 1;
+
+                      const getRoundTitle = (round: number, totalRounds: number) => {
+                        if (round === totalRounds) return "Final Winner";
+                        if (round === totalRounds - 1) return "Semifinal";
+                        if (round === totalRounds - 2) return "Quartas de Final";
+                        if (round === totalRounds - 3) return "Oitavas de Final";
+                        if (round === totalRounds - 4) return "16-avos de Final";
+                        return `Rodada ${round}`;
+                      };
+
+                      const getLoserRoundTitle = (round: number, totalRounds: number) => {
+                        if (round === totalRounds) return "Final Loser";
+                        if (round === totalRounds - 1) return "Semifinal Loser";
+                        if (round === totalRounds - 2) return "Quartas Loser";
+                        return `Loser Rodada ${round}`;
+                      };
+
+                      const activeTab = activeTabs[category.id] || "WINNER";
+                      const setActiveTab = (tab: "WINNER" | "LOSER" | "FINALS") => {
+                        setActiveTabs((prev) => ({ ...prev, [category.id]: tab }));
+                      };
+
+                      return (
+                        <div className="space-y-6 mt-4 z-10 relative">
+                          <div className="flex gap-2 bg-slate-900/60 p-1.5 rounded-xl border border-slate-800 w-fit">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("WINNER")}
+                              className={`px-4 py-2 text-xs font-bold rounded-lg transition duration-200 ${
+                                activeTab === "WINNER"
+                                  ? "bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/10"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              Chave Principal (Winner)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("LOSER")}
+                              className={`px-4 py-2 text-xs font-bold rounded-lg transition duration-200 ${
+                                activeTab === "LOSER"
+                                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/10"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              Chave de Repescagem (Loser)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("FINALS")}
+                              className={`px-4 py-2 text-xs font-bold rounded-lg transition duration-200 ${
+                                activeTab === "FINALS"
+                                  ? "bg-rose-500 text-slate-950 shadow-lg shadow-rose-500/10"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              Finais e Decisões
+                            </button>
+                          </div>
+
+                          {activeTab === "WINNER" && (
+                            <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
+                              {wMatches.length > 0 ? (
+                                Array.from(new Set(wMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                                  const roundMatches = wMatches.filter((m) => m.round === roundNum);
+                                  const isFinalRound = roundNum === totalWBRounds;
+                                  return (
+                                    <div key={`w-r-${roundNum}`} className="flex flex-col justify-around min-h-[500px] w-64 relative py-8">
+                                      <div className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-emerald-500/20 bg-emerald-500/5 py-1 rounded-md">
+                                        {getRoundTitle(roundNum, totalWBRounds)}
+                                      </div>
+                                      {roundMatches.map((match) => (
+                                        <div key={match.id} className="relative group">
+                                          {!isFinalRound && (
+                                            <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
+                                          )}
+                                          {roundNum > 1 && (
+                                            <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
+                                          )}
+                                          <div className="relative z-10">
+                                            {renderMatchCard(match)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-slate-400 text-sm">Nenhuma partida gerada ainda.</p>
+                              )}
+                            </div>
+                          )}
+
+                          {activeTab === "LOSER" && (
+                            <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
+                              {lMatches.length > 0 ? (
+                                Array.from(new Set(lMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                                  const roundMatches = lMatches.filter((m) => m.round === roundNum);
+                                  const isFinalRound = roundNum === totalLBRounds;
+                                  return (
+                                    <div key={`l-r-${roundNum}`} className="flex flex-col justify-around min-h-[500px] w-64 relative py-8">
+                                      <div className="text-center text-[10px] font-bold text-amber-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-amber-500/20 bg-amber-500/5 py-1 rounded-md">
+                                        {getLoserRoundTitle(roundNum, totalLBRounds)}
+                                      </div>
+                                      {roundMatches.map((match) => (
+                                        <div key={match.id} className="relative group">
+                                          {roundNum > 1 && (
+                                            <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
+                                          )}
+                                          {!isFinalRound && (
+                                            <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
+                                          )}
+                                          <div className="relative z-10">
+                                            {renderMatchCard(match)}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="text-slate-400 text-sm">Nenhuma partida de repescagem.</p>
+                              )}
+                            </div>
+                          )}
+
+                          {activeTab === "FINALS" && (
+                            <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
+                              {gfMatches.length > 0 && (
+                                <div className="flex flex-col justify-center gap-12 min-h-[500px] w-64 relative py-8">
+                                  <div className="text-center text-[10px] font-bold text-rose-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-rose-500/20 bg-rose-500/5 py-1 rounded-md">
+                                    Grande Final
+                                  </div>
+                                  {gfMatches.filter(m => m.bracketType === "GRAND_FINAL").map((match) => (
+                                    <div key={match.id} className="relative group">
+                                      <div className="relative z-10">
+                                        {renderMatchCard(match)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {gfMatches.some(m => m.bracketType === "RESET_FINAL" && (m.competitorAId || m.competitorBId)) && (
+                                <div className="flex flex-col justify-center gap-12 min-h-[500px] w-64 relative py-8">
+                                  <div className="text-center text-[10px] font-bold text-rose-500 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-rose-500/20 bg-rose-500/5 py-1 rounded-md">
+                                    Jogo de Reset
+                                  </div>
+                                  {gfMatches.filter(m => m.bracketType === "RESET_FINAL").map((match) => (
+                                    <div key={match.id} className="relative group">
+                                      <div className="relative z-10">
+                                        {renderMatchCard(match)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {tpMatches.length > 0 && (
+                                <div className="flex flex-col justify-center gap-12 min-h-[500px] w-64 relative py-8">
+                                  <div className="text-center text-[10px] font-bold text-sky-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-sky-500/20 bg-sky-500/5 py-1 rounded-md">
+                                    Disputa de 3º Lugar
+                                  </div>
+                                  {tpMatches.map((match) => (
+                                    <div key={match.id} className="relative group">
+                                      <div className="relative z-10">
+                                        {renderMatchCard(match)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
-                    })}
+                    })()}
                   </div>
                 ) : (
                   category.status !== "DRAFT" && (

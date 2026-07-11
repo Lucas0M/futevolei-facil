@@ -389,6 +389,8 @@ export async function generatePersistentBracket(categoryId: string) {
     });
 
     const matchesToCreate: any[] = [];
+    
+    // 1. Winner Bracket Matches
     for (let r = 1; r <= totalRounds; r++) {
       const matchesInRound = M / Math.pow(2, r);
       for (let pos = 1; pos <= matchesInRound; pos++) {
@@ -396,6 +398,7 @@ export async function generatePersistentBracket(categoryId: string) {
           categoryId,
           round: r,
           position: pos,
+          bracketType: "WINNER",
           competitorAId: null,
           competitorAName: null,
           competitorBId: null,
@@ -406,11 +409,90 @@ export async function generatePersistentBracket(categoryId: string) {
       }
     }
 
+    // 2. Loser Bracket Matches
+    for (let wr = 1; wr <= totalRounds - 1; wr++) {
+      const minorRound = 2 * wr - 1;
+      const minorMatches = M / Math.pow(2, wr + 1);
+      for (let pos = 1; pos <= minorMatches; pos++) {
+        matchesToCreate.push({
+          categoryId,
+          round: minorRound,
+          position: pos,
+          bracketType: "LOSER",
+          competitorAId: null,
+          competitorAName: null,
+          competitorBId: null,
+          competitorBName: null,
+          winnerId: null,
+          score: null,
+        });
+      }
+
+      const majorRound = 2 * wr;
+      const majorMatches = M / Math.pow(2, wr + 1);
+      for (let pos = 1; pos <= majorMatches; pos++) {
+        matchesToCreate.push({
+          categoryId,
+          round: majorRound,
+          position: pos,
+          bracketType: "LOSER",
+          competitorAId: null,
+          competitorAName: null,
+          competitorBId: null,
+          competitorBName: null,
+          winnerId: null,
+          score: null,
+        });
+      }
+    }
+
+    // 3. Grand Final
+    matchesToCreate.push({
+      categoryId,
+      round: 1,
+      position: 1,
+      bracketType: "GRAND_FINAL",
+      competitorAId: null,
+      competitorAName: null,
+      competitorBId: null,
+      competitorBName: null,
+      winnerId: null,
+      score: null,
+    });
+
+    // 4. Reset Final
+    matchesToCreate.push({
+      categoryId,
+      round: 1,
+      position: 1,
+      bracketType: "RESET_FINAL",
+      competitorAId: null,
+      competitorAName: null,
+      competitorBId: null,
+      competitorBName: null,
+      winnerId: null,
+      score: null,
+    });
+
+    // 5. Third Place Match
+    matchesToCreate.push({
+      categoryId,
+      round: 1,
+      position: 1,
+      bracketType: "THIRD_PLACE",
+      competitorAId: null,
+      competitorAName: null,
+      competitorBId: null,
+      competitorBName: null,
+      winnerId: null,
+      score: null,
+    });
+
     const createdMatches = await Promise.all(
       matchesToCreate.map((m) => tx.match.create({ data: m }))
     );
 
-    const round1Matches = createdMatches.filter((m) => m.round === 1);
+    const round1Matches = createdMatches.filter((m) => m.round === 1 && m.bracketType === "WINNER");
     const numDoubleMatches = P - round1Matches.length;
     let playerIdx = 0;
     for (let idx = 0; idx < round1Matches.length; idx++) {
@@ -454,7 +536,7 @@ export async function generatePersistentBracket(categoryId: string) {
           data: { winnerId: match.winnerId, score: match.score },
         });
 
-        await advanceWinner(tx, categoryId, 1, match.position, match.competitorAId, match.competitorAName!);
+        await advanceWinner(tx, categoryId, 1, match.position, match.competitorAId, match.competitorAName!, "WINNER");
       }
     }
 
@@ -475,16 +557,98 @@ export async function updateMatchWinner(matchId: string, winnerId: string, score
     const winnerName = winnerId === match.competitorAId ? match.competitorAName : match.competitorBName;
     if (!winnerName) throw new AppError("Vencedor inválido.", 400);
 
+    const loserId = winnerId === match.competitorAId ? match.competitorBId : match.competitorAId;
+    const loserName = winnerId === match.competitorAId ? match.competitorBName : match.competitorAName;
+
     const updatedMatch = await tx.match.update({
       where: { id: matchId },
       data: { winnerId, score },
     });
 
-    await advanceWinner(tx, match.categoryId, match.round, match.position, winnerId, winnerName);
+    if (match.bracketType === "WINNER" && loserId && loserName) {
+      await routeLoser(tx, match.categoryId, match.round, match.position, loserId, loserName);
+    }
+
+    await advanceWinner(tx, match.categoryId, match.round, match.position, winnerId, winnerName, match.bracketType);
     await recalculateRankings(tx);
 
     return updatedMatch;
   });
+}
+
+async function routeLoser(
+  tx: any,
+  categoryId: string,
+  currentRound: number,
+  currentPosition: number,
+  loserId: string,
+  loserName: string
+) {
+  if (!loserId) return;
+
+  const matches = await tx.match.findMany({ where: { categoryId, bracketType: "WINNER" } });
+  const totalRounds = Math.max(...matches.map((m: any) => m.round));
+
+  if (currentRound === totalRounds - 1) {
+    const thirdPlaceMatch = await tx.match.findFirst({
+      where: { categoryId, bracketType: "THIRD_PLACE" }
+    });
+    if (thirdPlaceMatch) {
+      const isCompetitorA = currentPosition === 1;
+      const updateData: any = {};
+      if (isCompetitorA) {
+        updateData.competitorAId = loserId;
+        updateData.competitorAName = loserName;
+      } else {
+        updateData.competitorBId = loserId;
+        updateData.competitorBName = loserName;
+      }
+      const updated = await tx.match.update({
+        where: { id: thirdPlaceMatch.id },
+        data: updateData
+      });
+      await checkAndResolveWO(tx, categoryId, updated.id);
+    }
+    return;
+  }
+
+  let dropRound = 1;
+  let dropPosition = 1;
+  let isCompetitorA = true;
+
+  if (currentRound === totalRounds) {
+    dropRound = 2 * totalRounds - 2;
+    dropPosition = 1;
+    isCompetitorA = false;
+  } else if (currentRound === 1) {
+    dropRound = 1;
+    dropPosition = Math.floor((currentPosition - 1) / 2) + 1;
+    isCompetitorA = (currentPosition - 1) % 2 === 0;
+  } else {
+    dropRound = 2 * currentRound - 2;
+    dropPosition = currentPosition;
+    isCompetitorA = false;
+  }
+
+  const destMatch = await tx.match.findFirst({
+    where: { categoryId, round: dropRound, position: dropPosition, bracketType: "LOSER" }
+  });
+
+  if (destMatch) {
+    const updateData: any = {};
+    if (isCompetitorA) {
+      updateData.competitorAId = loserId;
+      updateData.competitorAName = loserName;
+    } else {
+      updateData.competitorBId = loserId;
+      updateData.competitorBName = loserName;
+    }
+    const updated = await tx.match.update({
+      where: { id: destMatch.id },
+      data: updateData
+    });
+    await checkAndResolveWO(tx, categoryId, updated.id);
+  }
 }
 
 async function advanceWinner(
@@ -493,31 +657,203 @@ async function advanceWinner(
   currentRound: number,
   currentPosition: number,
   winnerId: string,
-  winnerName: string
+  winnerName: string,
+  bracketType: string
 ) {
-  const nextRound = currentRound + 1;
-  const nextPosition = Math.floor((currentPosition - 1) / 2) + 1;
-  const isCompetitorA = (currentPosition - 1) % 2 === 0;
+  if (!winnerId) return;
 
-  const nextMatch = await tx.match.findFirst({
-    where: { categoryId, round: nextRound, position: nextPosition },
-  });
+  if (bracketType === "WINNER") {
+    const matches = await tx.match.findMany({ where: { categoryId, bracketType: "WINNER" } });
+    const totalRounds = Math.max(...matches.map((m: any) => m.round));
 
-  if (nextMatch) {
-    const updateData: any = {};
-    if (isCompetitorA) {
-      updateData.competitorAId = winnerId;
-      updateData.competitorAName = winnerName;
+    if (currentRound === totalRounds) {
+      const gf = await tx.match.findFirst({
+        where: { categoryId, bracketType: "GRAND_FINAL" }
+      });
+      if (gf) {
+        await tx.match.update({
+          where: { id: gf.id },
+          data: { competitorAId: winnerId, competitorAName: winnerName }
+        });
+        await checkAndResolveWO(tx, categoryId, gf.id);
+      }
     } else {
-      updateData.competitorBId = winnerId;
-      updateData.competitorBName = winnerName;
+      const nextRound = currentRound + 1;
+      const nextPosition = Math.floor((currentPosition - 1) / 2) + 1;
+      const isCompetitorA = (currentPosition - 1) % 2 === 0;
+
+      const nextMatch = await tx.match.findFirst({
+        where: { categoryId, round: nextRound, position: nextPosition, bracketType: "WINNER" },
+      });
+
+      if (nextMatch) {
+        const updateData: any = {};
+        if (isCompetitorA) {
+          updateData.competitorAId = winnerId;
+          updateData.competitorAName = winnerName;
+        } else {
+          updateData.competitorBId = winnerId;
+          updateData.competitorBName = winnerName;
+        }
+        const updated = await tx.match.update({ where: { id: nextMatch.id }, data: updateData });
+        await checkAndResolveWO(tx, categoryId, updated.id);
+      }
     }
-    await tx.match.update({ where: { id: nextMatch.id }, data: updateData });
-  } else {
+  } else if (bracketType === "LOSER") {
+    const matches = await tx.match.findMany({ where: { categoryId, bracketType: "LOSER" } });
+    const totalLoserRounds = Math.max(...matches.map((m: any) => m.round));
+
+    if (currentRound === totalLoserRounds) {
+      const gf = await tx.match.findFirst({
+        where: { categoryId, bracketType: "GRAND_FINAL" }
+      });
+      if (gf) {
+        await tx.match.update({
+          where: { id: gf.id },
+          data: { competitorBId: winnerId, competitorBName: winnerName }
+        });
+        await checkAndResolveWO(tx, categoryId, gf.id);
+      }
+    } else {
+      let nextRound = currentRound + 1;
+      let nextPosition = currentPosition;
+      let isCompetitorA = true;
+
+      if (currentRound % 2 === 0) {
+        nextPosition = Math.floor((currentPosition - 1) / 2) + 1;
+        isCompetitorA = (currentPosition - 1) % 2 === 0;
+      } else {
+        nextPosition = currentPosition;
+        isCompetitorA = true;
+      }
+
+      const nextMatch = await tx.match.findFirst({
+        where: { categoryId, round: nextRound, position: nextPosition, bracketType: "LOSER" },
+      });
+
+      if (nextMatch) {
+        const updateData: any = {};
+        if (isCompetitorA) {
+          updateData.competitorAId = winnerId;
+          updateData.competitorAName = winnerName;
+        } else {
+          updateData.competitorBId = winnerId;
+          updateData.competitorBName = winnerName;
+        }
+        const updated = await tx.match.update({ where: { id: nextMatch.id }, data: updateData });
+        await checkAndResolveWO(tx, categoryId, updated.id);
+      }
+    }
+  } else if (bracketType === "GRAND_FINAL") {
+    const gf = await tx.match.findFirst({ where: { categoryId, bracketType: "GRAND_FINAL" } });
+    if (gf) {
+      if (winnerId === gf.competitorBId) {
+        const rf = await tx.match.findFirst({
+          where: { categoryId, bracketType: "RESET_FINAL" }
+        });
+        if (rf) {
+          await tx.match.update({
+            where: { id: rf.id },
+            data: {
+              competitorAId: gf.competitorAId,
+              competitorAName: gf.competitorAName,
+              competitorBId: gf.competitorBId,
+              competitorBName: gf.competitorBName,
+            }
+          });
+        }
+      } else {
+        await tx.category.update({
+          where: { id: categoryId },
+          data: { winnerName },
+        });
+      }
+    }
+  } else if (bracketType === "RESET_FINAL") {
     await tx.category.update({
       where: { id: categoryId },
       data: { winnerName },
     });
+  }
+}
+
+async function checkAndResolveWO(tx: any, categoryId: string, matchId: string) {
+  const match = await tx.match.findUnique({ where: { id: matchId } });
+  if (!match || match.winnerId) return;
+
+  if (match.competitorAId && match.competitorBId) return;
+  if (!match.competitorAId && !match.competitorBId) return;
+
+  let canBeFilled = false;
+
+  if (match.bracketType === "WINNER") {
+    if (match.round > 1) {
+      const prevRound = match.round - 1;
+      const partnerPos = match.competitorAId ? (match.position - 1) * 2 + 2 : (match.position - 1) * 2 + 1;
+      const sourceMatch = await tx.match.findFirst({
+        where: { categoryId, round: prevRound, position: partnerPos, bracketType: "WINNER" }
+      });
+      if (sourceMatch && (sourceMatch.competitorAId || sourceMatch.competitorBId || sourceMatch.winnerId)) {
+        canBeFilled = true;
+      }
+    }
+  } else if (match.bracketType === "LOSER") {
+    const isOdd = match.round % 2 !== 0;
+    if (isOdd) {
+      const wr = Math.floor((match.round + 1) / 2);
+      if (wr === 1) {
+        const srcPos = match.competitorAId ? match.position * 2 : match.position * 2 - 1;
+        const sourceMatch = await tx.match.findFirst({
+          where: { categoryId, round: 1, position: srcPos, bracketType: "WINNER" }
+        });
+        if (sourceMatch && (sourceMatch.competitorAId || sourceMatch.competitorBId || sourceMatch.winnerId)) {
+          canBeFilled = true;
+        }
+      } else {
+        const prevLB = match.round - 1;
+        const srcPos = match.competitorAId ? match.position * 2 : match.position * 2 - 1;
+        const sourceMatch = await tx.match.findFirst({
+          where: { categoryId, round: prevLB, position: srcPos, bracketType: "LOSER" }
+        });
+        if (sourceMatch && (sourceMatch.competitorAId || sourceMatch.competitorBId || sourceMatch.winnerId)) {
+          canBeFilled = true;
+        }
+      }
+    } else {
+      const wr = match.round / 2;
+      const isCompAEmpty = !match.competitorAId;
+      if (isCompAEmpty) {
+        const sourceMatch = await tx.match.findFirst({
+          where: { categoryId, round: match.round - 1, position: match.position, bracketType: "LOSER" }
+        });
+        if (sourceMatch && (sourceMatch.competitorAId || sourceMatch.competitorBId || sourceMatch.winnerId)) {
+          canBeFilled = true;
+        }
+      } else {
+        const sourceMatch = await tx.match.findFirst({
+          where: { categoryId, round: wr + 1, position: match.position, bracketType: "WINNER" }
+        });
+        if (sourceMatch && (sourceMatch.competitorAId || sourceMatch.competitorBId || sourceMatch.winnerId)) {
+          canBeFilled = true;
+        }
+      }
+    }
+  } else if (match.bracketType === "GRAND_FINAL") {
+    canBeFilled = true;
+  } else if (match.bracketType === "RESET_FINAL") {
+    canBeFilled = true;
+  }
+
+  if (!canBeFilled) {
+    const winnerId = match.competitorAId || match.competitorBId;
+    const winnerName = match.competitorAId ? match.competitorAName : match.competitorBName;
+    if (winnerId && winnerName) {
+      await tx.match.update({
+        where: { id: match.id },
+        data: { winnerId, score: "W.O." }
+      });
+      await advanceWinner(tx, categoryId, match.round, match.position, winnerId, winnerName, match.bracketType);
+    }
   }
 }
 
@@ -707,34 +1043,96 @@ export async function recalculateRankings(tx?: any) {
 }
 
 export function formatMatchupNames(matches: any[]): any[] {
-  const sorted = [...matches].sort((a, b) => a.round - b.round || a.position - b.position);
-  const matchMap = new Map<string, number>();
-  sorted.forEach((m, idx) => {
-    matchMap.set(`${m.round}:${m.position}`, idx + 1);
+  const typeOrder: Record<string, number> = {
+    "WINNER": 1,
+    "LOSER": 2,
+    "GRAND_FINAL": 3,
+    "RESET_FINAL": 4
+  };
+  const sorted = [...matches].sort((a, b) => {
+    const orderA = typeOrder[a.bracketType] || 99;
+    const orderB = typeOrder[b.bracketType] || 99;
+    if (orderA !== orderB) return orderA - orderB;
+    if (a.round !== b.round) return a.round - b.round;
+    return a.position - b.position;
   });
 
-  return sorted.map((m) => {
+  const matchMap = new Map<string, number>();
+  sorted.forEach((m, idx) => {
+    matchMap.set(`${m.bracketType}:${m.round}:${m.position}`, idx + 1);
+  });
+
+  const totalWBRounds = Math.max(...sorted.filter(m => m.bracketType === "WINNER").map(m => m.round), 1);
+  const totalLBRounds = Math.max(...sorted.filter(m => m.bracketType === "LOSER").map(m => m.round), 1);
+
+  return sorted.map((m, idx) => {
+    const label = `Jogo ${idx + 1}`;
     let competitorAName = m.competitorAName;
     let competitorBName = m.competitorBName;
 
-    if (m.round > 1) {
+    if (m.bracketType === "WINNER" && m.round > 1) {
       const prevRound = m.round - 1;
       const posA = (m.position - 1) * 2 + 1;
       const posB = (m.position - 1) * 2 + 2;
 
-      const idxA = matchMap.get(`${prevRound}:${posA}`);
-      const idxB = matchMap.get(`${prevRound}:${posB}`);
+      const idxA = matchMap.get(`WINNER:${prevRound}:${posA}`);
+      const idxB = matchMap.get(`WINNER:${prevRound}:${posB}`);
 
-      if (!competitorAName) {
-        competitorAName = idxA ? `Vencedor do Jogo ${idxA}` : "A definir";
+      if (!competitorAName) competitorAName = idxA ? `Vencedor do Jogo ${idxA}` : "A definir";
+      if (!competitorBName) competitorBName = idxB ? `Vencedor do Jogo ${idxB}` : "A definir";
+    } else if (m.bracketType === "LOSER") {
+      const isOdd = m.round % 2 !== 0;
+      if (isOdd) {
+        const wr = Math.floor((m.round + 1) / 2);
+        if (wr === 1) {
+          const posA = (m.position - 1) * 2 + 1;
+          const posB = (m.position - 1) * 2 + 2;
+          const idxA = matchMap.get(`WINNER:1:${posA}`);
+          const idxB = matchMap.get(`WINNER:1:${posB}`);
+
+          if (!competitorAName) competitorAName = idxA ? `Perdedor do Jogo ${idxA}` : "A definir";
+          if (!competitorBName) competitorBName = idxB ? `Perdedor do Jogo ${idxB}` : "A definir";
+        } else {
+          const prevLB = m.round - 1;
+          const posA = (m.position - 1) * 2 + 1;
+          const posB = (m.position - 1) * 2 + 2;
+          const idxA = matchMap.get(`LOSER:${prevLB}:${posA}`);
+          const idxB = matchMap.get(`LOSER:${prevLB}:${posB}`);
+
+          if (!competitorAName) competitorAName = idxA ? `Vencedor do Jogo ${idxA}` : "A definir";
+          if (!competitorBName) competitorBName = idxB ? `Vencedor do Jogo ${idxB}` : "A definir";
+        }
+      } else {
+        const wr = m.round / 2;
+        const prevLB = m.round - 1;
+        const idxA = matchMap.get(`LOSER:${prevLB}:${m.position}`);
+        const idxB = matchMap.get(`WINNER:${wr + 1}:${m.position}`);
+
+        if (!competitorAName) competitorAName = idxA ? `Vencedor do Jogo ${idxA}` : "A definir";
+        if (!competitorBName) competitorBName = idxB ? `Perdedor do Jogo ${idxB}` : "A definir";
       }
-      if (!competitorBName) {
-        competitorBName = idxB ? `Vencedor do Jogo ${idxB}` : "A definir";
-      }
+    } else if (m.bracketType === "GRAND_FINAL") {
+      const idxA = matchMap.get(`WINNER:${totalWBRounds}:1`);
+      const idxB = matchMap.get(`LOSER:${totalLBRounds}:1`);
+
+      if (!competitorAName) competitorAName = idxA ? `Vencedor do Jogo ${idxA}` : "Finalista Winner";
+      if (!competitorBName) competitorBName = idxB ? `Vencedor do Jogo ${idxB}` : "Finalista Loser";
+    } else if (m.bracketType === "RESET_FINAL") {
+      const idxGF = matchMap.get(`GRAND_FINAL:1:1`);
+      if (!competitorAName) competitorAName = idxGF ? `Vencedor da GF` : "Finalista A";
+      if (!competitorBName) competitorBName = idxGF ? `Perdedor da GF` : "Finalista B";
+    } else if (m.bracketType === "THIRD_PLACE") {
+      const semiRound = totalWBRounds - 1;
+      const idxA = matchMap.get(`WINNER:${semiRound}:1`);
+      const idxB = matchMap.get(`WINNER:${semiRound}:2`);
+
+      if (!competitorAName) competitorAName = idxA ? `Perdedor do Jogo ${idxA}` : "Perdedor Semi 1";
+      if (!competitorBName) competitorBName = idxB ? `Perdedor do Jogo ${idxB}` : "Perdedor Semi 2";
     }
 
     return {
       ...m,
+      label,
       competitorAName,
       competitorBName,
     };
