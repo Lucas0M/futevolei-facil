@@ -2,7 +2,7 @@
 
 Futevôlei Fácil é uma plataforma web desenvolvida para simplificar a organização de
 torneios de futevôlei. O sistema permite divulgar campeonatos, gerenciar inscrições
-(individuais ou em dupla), processar pagamentos, e centralizar todas as informações
+(duplas formadas ou em dupla sorteadas), processar pagamentos, e centralizar todas as informações
 dos eventos em um único lugar — substituindo o controle manual feito hoje em grupos
 de WhatsApp.
 
@@ -13,7 +13,7 @@ de WhatsApp.
 - **Banco de dados:** PostgreSQL (via Docker)
 - **Autenticação:** JWT (token único, sem refresh token no MVP) + bcrypt
 - **E-mail transacional:** Resend
-- **Frontend:** React + TypeScript + Tailwind CSS (ainda não iniciado)
+- **Frontend:** React + TypeScript + Tailwind CSS
 
 ## Convenções do projeto
 
