@@ -298,7 +298,7 @@ function CategoryBlock({
       )}
 
       {category.matches && category.matches.length > 0 && (
-        <div className="mt-6 border-t border-slate-800 pt-5 space-y-6">
+        <div className="mt-6 border-t border-slate-800 pt-5 space-y-6 max-w-full overflow-x-auto">
           <h4 className="text-lg font-bold text-white">Chaveamento Oficial (Double Elimination)</h4>
           {(() => {
             const renderMatchCard = (match: any) => {
@@ -400,30 +400,34 @@ function CategoryBlock({
                 {activeTab === "WINNER" && (
                   <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
                     {wMatches.length > 0 ? (
-                      Array.from(new Set(wMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
-                        const roundMatches = wMatches.filter((m) => m.round === roundNum);
-                        const isFinalRound = roundNum === totalWBRounds;
-                        return (
-                          <div key={`w-r-${roundNum}`} className="flex flex-col justify-around min-h-[500px] w-64 relative py-8">
-                            <div className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-emerald-500/20 bg-emerald-500/5 py-1 rounded-md">
-                              {getRoundTitle(roundNum, totalWBRounds)}
-                            </div>
-                            {roundMatches.map((match) => (
-                              <div key={match.id} className="relative group">
-                                {!isFinalRound && (
-                                  <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
-                                )}
-                                {roundNum > 1 && (
-                                  <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
-                                )}
-                                <div className="relative z-10">
-                                  {renderMatchCard(match)}
-                                </div>
+                      (() => {
+                        const maxRoundMatches = Math.max(...Array.from(new Set(wMatches.map(m => m.round))).map(r => wMatches.filter(m => m.round === r).length));
+                        const colMinHeight = Math.max(550, maxRoundMatches * 160);
+                        return Array.from(new Set(wMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                          const roundMatches = wMatches.filter((m) => m.round === roundNum);
+                          const isFinalRound = roundNum === totalWBRounds;
+                          return (
+                            <div key={`w-r-${roundNum}`} style={{ minHeight: `${colMinHeight}px` }} className="flex flex-col justify-around w-64 relative py-8">
+                              <div className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-emerald-500/20 bg-emerald-500/5 py-1 rounded-md">
+                                {getRoundTitle(roundNum, totalWBRounds)}
                               </div>
-                            ))}
-                          </div>
-                        );
-                      })
+                              {roundMatches.map((match) => (
+                                <div key={match.id} className="relative group my-4">
+                                  {!isFinalRound && (
+                                    <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
+                                  )}
+                                  {roundNum > 1 && (
+                                    <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
+                                  )}
+                                  <div className="relative z-10">
+                                    {renderMatchCard(match)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        });
+                      })()
                     ) : (
                       <p className="text-slate-400 text-sm">Nenhuma partida gerada ainda.</p>
                     )}
@@ -433,30 +437,34 @@ function CategoryBlock({
                 {activeTab === "LOSER" && (
                   <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
                     {lMatches.length > 0 ? (
-                      Array.from(new Set(lMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
-                        const roundMatches = lMatches.filter((m) => m.round === roundNum);
-                        const isFinalRound = roundNum === totalLBRounds;
-                        return (
-                          <div key={`l-r-${roundNum}`} className="flex flex-col justify-around min-h-[500px] w-64 relative py-8">
-                            <div className="text-center text-[10px] font-bold text-amber-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-amber-500/20 bg-amber-500/5 py-1 rounded-md">
-                              {getLoserRoundTitle(roundNum, totalLBRounds)}
-                            </div>
-                            {roundMatches.map((match) => (
-                              <div key={match.id} className="relative group">
-                                {roundNum > 1 && (
-                                  <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
-                                )}
-                                {!isFinalRound && (
-                                  <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
-                                )}
-                                <div className="relative z-10">
-                                  {renderMatchCard(match)}
-                                </div>
+                      (() => {
+                        const maxRoundMatches = Math.max(...Array.from(new Set(lMatches.map(m => m.round))).map(r => lMatches.filter(m => m.round === r).length));
+                        const colMinHeight = Math.max(550, maxRoundMatches * 160);
+                        return Array.from(new Set(lMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                          const roundMatches = lMatches.filter((m) => m.round === roundNum);
+                          const isFinalRound = roundNum === totalLBRounds;
+                          return (
+                            <div key={`l-r-${roundNum}`} style={{ minHeight: `${colMinHeight}px` }} className="flex flex-col justify-around w-64 relative py-8">
+                              <div className="text-center text-[10px] font-bold text-amber-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-amber-500/20 bg-amber-500/5 py-1 rounded-md">
+                                {getLoserRoundTitle(roundNum, totalLBRounds)}
                               </div>
-                            ))}
-                          </div>
-                        );
-                      })
+                              {roundMatches.map((match) => (
+                                <div key={match.id} className="relative group my-4">
+                                  {roundNum > 1 && (
+                                    <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
+                                  )}
+                                  {!isFinalRound && (
+                                    <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
+                                  )}
+                                  <div className="relative z-10">
+                                    {renderMatchCard(match)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        });
+                      })()
                     ) : (
                       <p className="text-slate-400 text-sm">Nenhuma partida de repescagem.</p>
                     )}

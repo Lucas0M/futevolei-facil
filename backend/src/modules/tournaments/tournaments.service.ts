@@ -155,8 +155,12 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
     include: {
       categories: {
         include: {
-          registrations: { select: { status: true } },
-          teams: { select: { status: true } },
+          registrations: {
+            include: { user: { select: { name: true, email: true } } },
+          },
+          teams: {
+            include: { ownerUser: { select: { name: true, email: true } } },
+          },
           matches: {
             orderBy: [{ round: "asc" }, { position: "asc" }],
           },
@@ -202,6 +206,23 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
         status: c.status,
         winnerName: c.winnerName,
         matches: formatMatchupNames(c.matches),
+        registrations: requesterRole === "ADMIN" ? c.registrations.map(r => ({
+          id: r.id,
+          playerName: r.customPlayerName ?? r.user.name,
+          email: r.user.email,
+          status: r.status,
+          amountDue: r.amountDue,
+          createdAt: r.createdAt,
+        })) : [],
+        teams: requesterRole === "ADMIN" ? c.teams.map(t => ({
+          id: t.id,
+          ownerName: t.customOwnerName ?? t.ownerUser.name,
+          partnerName: t.partnerName,
+          email: t.ownerUser.email,
+          status: t.status,
+          amountDue: t.amountDue,
+          createdAt: t.createdAt,
+        })) : [],
       };
     }),
   };

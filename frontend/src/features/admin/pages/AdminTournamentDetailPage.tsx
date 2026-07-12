@@ -8,7 +8,7 @@ import {
   getTournamentPendingPayments,
 } from "../../../api/tournaments.api";
 import { confirmRegistrationPayment, confirmTeamPayment, type TeamPaymentPortion } from "../../../api/payments.api";
-import { createRegistration } from "../../../api/registrations.api";
+import { createRegistration, adminCancelRegistration, adminCancelTeam, adminUpdateRegistration, adminUpdateTeam } from "../../../api/registrations.api";
 import { createCategory, publishCategory, updateCategory, deleteCategory, generatePersistentBracket, updateMatchWinner } from "../../../api/categories.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import { statusBadgeClasses, statusLabel, formatLabel, slotsUnitLabel } from "../../../shared/utils/tournamentLabels";
@@ -86,6 +86,76 @@ export function AdminTournamentDetailPage() {
   const [manualPlayer2, setManualPlayer2] = useState("");
   const [isRegisteringManual, setIsRegisteringManual] = useState(false);
 
+  // Participant edit/delete states
+  const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
+  const [editNamesForm, setEditNamesForm] = useState({
+    customOwnerName: "",
+    partnerName: "",
+    customPlayerName: ""
+  });
+
+  async function handleConfirmPaymentManual(id: string, format: string) {
+    if (!window.confirm("Deseja realmente confirmar manualmente o pagamento deste participante?")) {
+      return;
+    }
+    setError(null);
+    try {
+      if (format === "DUO_FIXED") {
+        await confirmTeamPayment(id, "FULL");
+      } else {
+        await confirmRegistrationPayment(id);
+      }
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível confirmar o pagamento."));
+    }
+  }
+
+  async function handleDeleteParticipant(id: string, format: string) {
+    if (!window.confirm("Deseja realmente excluir a inscrição deste participante?")) {
+      return;
+    }
+    setError(null);
+    try {
+      if (format === "DUO_FIXED") {
+        await adminCancelTeam(id);
+      } else {
+        await adminCancelRegistration(id);
+      }
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível excluir a inscrição."));
+    }
+  }
+
+  async function handleSaveEditNames(id: string, format: string) {
+    setError(null);
+    try {
+      if (format === "DUO_FIXED") {
+        if (!editNamesForm.customOwnerName.trim() || !editNamesForm.partnerName.trim()) {
+          alert("Os nomes da dupla não podem estar em branco.");
+          return;
+        }
+        await adminUpdateTeam(id, {
+          customOwnerName: editNamesForm.customOwnerName,
+          partnerName: editNamesForm.partnerName
+        });
+      } else {
+        if (!editNamesForm.customPlayerName.trim()) {
+          alert("O nome do jogador não pode estar em branco.");
+          return;
+        }
+        await adminUpdateRegistration(id, {
+          customPlayerName: editNamesForm.customPlayerName
+        });
+      }
+      setEditingParticipantId(null);
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível salvar os nomes."));
+    }
+  }
+
   async function handleAddManualRegistration(categoryId: string, format: string) {
     if (format === "DUO_FIXED" && (!manualPlayer1.trim() || !manualPlayer2.trim())) {
       setError("Por favor, preencha os nomes de ambos os jogadores.");
@@ -144,6 +214,22 @@ export function AdminTournamentDetailPage() {
       await loadData();
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível salvar o vencedor da partida."));
+    } finally {
+      setIsSavingMatchResult(false);
+    }
+  }
+
+  async function handleResetMatchWinner(matchId: string) {
+    if (!window.confirm("Deseja realmente desfazer o resultado desta partida? Isso irá redefinir todos os confrontos dependentes desta chave.")) {
+      return;
+    }
+    setIsSavingMatchResult(true);
+    setError(null);
+    try {
+      await updateMatchWinner(matchId, "RESET", "");
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível desfazer o resultado da partida."));
     } finally {
       setIsSavingMatchResult(false);
     }
@@ -766,6 +852,287 @@ export function AdminTournamentDetailPage() {
                 </div>
               </div>
 
+              {/* Participant List Section */}
+              <div className="mt-5 border-t border-slate-800 pt-5 bg-slate-900/10 p-4 rounded-xl">
+                <h5 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-1.5">
+                  Lista de Inscritos
+                </h5>
+                {category.format === "DUO_FIXED" ? (
+                  category.teams && category.teams.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400">
+                            <th className="py-2">Dupla</th>
+                            <th className="py-2">Responsável</th>
+                            <th className="py-2">Situação</th>
+                            <th className="py-2">Status Jogos</th>
+                            <th className="py-2 text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {category.teams.map((t: any) => {
+                            const isEditing = editingParticipantId === t.id;
+                            const isConfirmed = t.status === "CONFIRMED";
+                            
+                            let gameStatus = "Não chaveado";
+                            if (category.matches && category.matches.length > 0) {
+                              const teamName = `${t.ownerName} + ${t.partnerName}`;
+                              const teamMatches = category.matches.filter((m: any) => 
+                                m.competitorAName === teamName || m.competitorBName === teamName
+                              );
+                              
+                              if (teamMatches.length > 0) {
+                                const lostMatches = teamMatches.filter((m: any) => 
+                                  m.winnerId && m.winnerId !== t.id
+                                );
+                                const isChampion = category.winnerName === teamName;
+                                
+                                if (isChampion) {
+                                  gameStatus = "🏆 Campeão";
+                                } else if (lostMatches.length >= 2) {
+                                  gameStatus = "❌ Eliminado";
+                                } else {
+                                  gameStatus = "🎾 Jogando";
+                                }
+                              }
+                            }
+
+                            return (
+                              <tr key={t.id} className="border-b border-slate-800/40 hover:bg-slate-900/10">
+                                <td className="py-3 pr-2">
+                                  {isEditing ? (
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        value={editNamesForm.customOwnerName}
+                                        onChange={(e) => setEditNamesForm({ ...editNamesForm, customOwnerName: e.target.value })}
+                                        className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white outline-none focus:border-emerald-400"
+                                      />
+                                      <span className="text-slate-400 self-center">+</span>
+                                      <input
+                                        type="text"
+                                        value={editNamesForm.partnerName}
+                                        onChange={(e) => setEditNamesForm({ ...editNamesForm, partnerName: e.target.value })}
+                                        className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white outline-none focus:border-emerald-400"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <span className="font-semibold text-white">
+                                      {t.ownerName} + {t.partnerName}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 text-slate-400 pr-2">
+                                  {t.email}
+                                </td>
+                                <td className="py-3 pr-2">
+                                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                                    isConfirmed ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                  }`}>
+                                    {isConfirmed ? "Pago" : "Pendente"}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-slate-300 pr-2">
+                                  {gameStatus}
+                                </td>
+                                <td className="py-3 text-right">
+                                  {isEditing ? (
+                                    <div className="flex gap-1.5 justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingParticipantId(null)}
+                                        className="rounded bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveEditNames(t.id, "DUO_FIXED")}
+                                        className="rounded bg-emerald-500 px-2.5 py-1 text-[10px] text-slate-950 font-bold hover:bg-emerald-400"
+                                      >
+                                        Salvar
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex gap-2 justify-end">
+                                      {!isConfirmed && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleConfirmPaymentManual(t.id, "DUO_FIXED")}
+                                          className="text-[10px] font-bold text-emerald-400 hover:underline"
+                                        >
+                                          Confirmar Pago
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingParticipantId(t.id);
+                                          setEditNamesForm({
+                                            customOwnerName: t.ownerName,
+                                            partnerName: t.partnerName,
+                                            customPlayerName: ""
+                                          });
+                                        }}
+                                        className="text-[10px] font-semibold text-slate-300 hover:text-emerald-400 hover:underline"
+                                      >
+                                        Editar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteParticipant(t.id, "DUO_FIXED")}
+                                        className="text-[10px] font-semibold text-rose-400 hover:text-rose-300 hover:underline"
+                                      >
+                                        Excluir
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-xs italic">Nenhuma dupla inscrita ainda.</p>
+                  )
+                ) : (
+                  category.registrations && category.registrations.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400">
+                            <th className="py-2">Jogador</th>
+                            <th className="py-2">Email</th>
+                            <th className="py-2">Situação</th>
+                            <th className="py-2">Status Jogos</th>
+                            <th className="py-2 text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {category.registrations.map((r: any) => {
+                            const isEditing = editingParticipantId === r.id;
+                            const isConfirmed = r.status === "CONFIRMED";
+                            
+                            let gameStatus = "Não chaveado";
+                            if (category.matches && category.matches.length > 0) {
+                              const playerName = r.playerName;
+                              const playerMatches = category.matches.filter((m: any) => 
+                                m.competitorAName === playerName || m.competitorBName === playerName
+                              );
+                              
+                              if (playerMatches.length > 0) {
+                                const lostMatches = playerMatches.filter((m: any) => 
+                                  m.winnerId && m.winnerId !== r.id
+                                );
+                                const isChampion = category.winnerName === playerName;
+                                
+                                if (isChampion) {
+                                  gameStatus = "🏆 Campeão";
+                                } else if (lostMatches.length >= 2) {
+                                  gameStatus = "❌ Eliminado";
+                                } else {
+                                  gameStatus = "🎾 Jogando";
+                                }
+                              }
+                            }
+
+                            return (
+                              <tr key={r.id} className="border-b border-slate-800/40 hover:bg-slate-900/10">
+                                <td className="py-3 pr-2">
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={editNamesForm.customPlayerName}
+                                      onChange={(e) => setEditNamesForm({ ...editNamesForm, customPlayerName: e.target.value })}
+                                      className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white outline-none focus:border-emerald-400"
+                                    />
+                                  ) : (
+                                    <span className="font-semibold text-white">
+                                      {r.playerName}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 text-slate-400 pr-2">
+                                  {r.email}
+                                </td>
+                                <td className="py-3 pr-2">
+                                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+                                    isConfirmed ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                                  }`}>
+                                    {isConfirmed ? "Pago" : "Pendente"}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-slate-300 pr-2">
+                                  {gameStatus}
+                                </td>
+                                <td className="py-3 text-right">
+                                  {isEditing ? (
+                                    <div className="flex gap-1.5 justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditingParticipantId(null)}
+                                        className="rounded bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:bg-slate-700"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveEditNames(r.id, category.format)}
+                                        className="rounded bg-emerald-500 px-2.5 py-1 text-[10px] text-slate-950 font-bold hover:bg-emerald-400"
+                                      >
+                                        Salvar
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex gap-2 justify-end">
+                                      {!isConfirmed && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleConfirmPaymentManual(r.id, category.format)}
+                                          className="text-[10px] font-bold text-emerald-400 hover:underline"
+                                        >
+                                          Confirmar Pago
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingParticipantId(r.id);
+                                          setEditNamesForm({
+                                            customOwnerName: "",
+                                            partnerName: "",
+                                            customPlayerName: r.playerName
+                                          });
+                                        }}
+                                        className="text-[10px] font-semibold text-slate-300 hover:text-emerald-400 hover:underline"
+                                      >
+                                        Editar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteParticipant(r.id, category.format)}
+                                        className="text-[10px] font-semibold text-rose-400 hover:text-rose-300 hover:underline"
+                                      >
+                                        Excluir
+                                      </button>
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 text-xs italic">Nenhum jogador inscrito ainda.</p>
+                  )
+                )}
+              </div>
+
               {/* Persistent Bracket Section */}
               <div className="mt-5 border-t border-slate-800 pt-5">
                 {category.winnerName && (
@@ -775,8 +1142,18 @@ export function AdminTournamentDetailPage() {
                 )}
 
                 {category.matches && category.matches.length > 0 ? (
-                  <div className="space-y-6">
-                    <h5 className="text-sm font-bold text-slate-300">Chaveamento do Torneio (Double Elimination)</h5>
+                  <div className="space-y-6 max-w-full overflow-x-auto">
+                    <div className="flex justify-between items-center pr-4">
+                      <h5 className="text-sm font-bold text-slate-300">Chaveamento do Torneio (Double Elimination)</h5>
+                      <button
+                        type="button"
+                        onClick={() => handleGeneratePersistentBracket(category.id)}
+                        disabled={isGeneratingBracketId === category.id}
+                        className="rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        🔄 Rechavear
+                      </button>
+                    </div>
                     {(() => {
                       const renderMatchCard = (match: any) => {
                         const isEditingMatch = editingMatchId === match.id;
@@ -865,6 +1242,18 @@ export function AdminTournamentDetailPage() {
                                   )}
                                 </div>
                               )}
+                              {match.winnerId && match.bracketType !== "GRAND_FINAL" && match.bracketType !== "RESET_FINAL" && (
+                                <div className="mt-2 border-t border-slate-800/60 pt-2 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetMatchWinner(match.id)}
+                                    disabled={isSavingMatchResult}
+                                    className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition hover:underline"
+                                  >
+                                    {isSavingMatchResult ? "Desfazendo..." : "Desfazer Resultado"}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -940,30 +1329,34 @@ export function AdminTournamentDetailPage() {
                           {activeTab === "WINNER" && (
                             <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
                               {wMatches.length > 0 ? (
-                                Array.from(new Set(wMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
-                                  const roundMatches = wMatches.filter((m) => m.round === roundNum);
-                                  const isFinalRound = roundNum === totalWBRounds;
-                                  return (
-                                    <div key={`w-r-${roundNum}`} className="flex flex-col justify-around min-h-[500px] w-64 relative py-8">
-                                      <div className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-emerald-500/20 bg-emerald-500/5 py-1 rounded-md">
-                                        {getRoundTitle(roundNum, totalWBRounds)}
-                                      </div>
-                                      {roundMatches.map((match) => (
-                                        <div key={match.id} className="relative group">
-                                          {!isFinalRound && (
-                                            <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
-                                          )}
-                                          {roundNum > 1 && (
-                                            <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
-                                          )}
-                                          <div className="relative z-10">
-                                            {renderMatchCard(match)}
-                                          </div>
+                                (() => {
+                                  const maxRoundMatches = Math.max(...Array.from(new Set(wMatches.map(m => m.round))).map(r => wMatches.filter(m => m.round === r).length));
+                                  const colMinHeight = Math.max(550, maxRoundMatches * 160);
+                                  return Array.from(new Set(wMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                                    const roundMatches = wMatches.filter((m) => m.round === roundNum);
+                                    const isFinalRound = roundNum === totalWBRounds;
+                                    return (
+                                      <div key={`w-r-${roundNum}`} style={{ minHeight: `${colMinHeight}px` }} className="flex flex-col justify-around w-64 relative py-8">
+                                        <div className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-emerald-500/20 bg-emerald-500/5 py-1 rounded-md">
+                                          {getRoundTitle(roundNum, totalWBRounds)}
                                         </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })
+                                        {roundMatches.map((match) => (
+                                          <div key={match.id} className="relative group my-4">
+                                            {!isFinalRound && (
+                                              <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
+                                            )}
+                                            {roundNum > 1 && (
+                                              <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-emerald-500 transition duration-300 z-0" />
+                                            )}
+                                            <div className="relative z-10">
+                                              {renderMatchCard(match)}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  });
+                                })()
                               ) : (
                                 <p className="text-slate-400 text-sm">Nenhuma partida gerada ainda.</p>
                               )}
@@ -973,30 +1366,34 @@ export function AdminTournamentDetailPage() {
                           {activeTab === "LOSER" && (
                             <div className="flex gap-16 overflow-x-auto pb-8 pt-10 scrollbar-thin scrollbar-thumb-slate-800 justify-start items-center min-w-max px-6">
                               {lMatches.length > 0 ? (
-                                Array.from(new Set(lMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
-                                  const roundMatches = lMatches.filter((m) => m.round === roundNum);
-                                  const isFinalRound = roundNum === totalLBRounds;
-                                  return (
-                                    <div key={`l-r-${roundNum}`} className="flex flex-col justify-around min-h-[500px] w-64 relative py-8">
-                                      <div className="text-center text-[10px] font-bold text-amber-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-amber-500/20 bg-amber-500/5 py-1 rounded-md">
-                                        {getLoserRoundTitle(roundNum, totalLBRounds)}
-                                      </div>
-                                      {roundMatches.map((match) => (
-                                        <div key={match.id} className="relative group">
-                                          {roundNum > 1 && (
-                                            <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
-                                          )}
-                                          {!isFinalRound && (
-                                            <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
-                                          )}
-                                          <div className="relative z-10">
-                                            {renderMatchCard(match)}
-                                          </div>
+                                (() => {
+                                  const maxRoundMatches = Math.max(...Array.from(new Set(lMatches.map(m => m.round))).map(r => lMatches.filter(m => m.round === r).length));
+                                  const colMinHeight = Math.max(550, maxRoundMatches * 160);
+                                  return Array.from(new Set(lMatches.map((m) => m.round))).sort((a,b)=>a-b).map((roundNum) => {
+                                    const roundMatches = lMatches.filter((m) => m.round === roundNum);
+                                    const isFinalRound = roundNum === totalLBRounds;
+                                    return (
+                                      <div key={`l-r-${roundNum}`} style={{ minHeight: `${colMinHeight}px` }} className="flex flex-col justify-around w-64 relative py-8">
+                                        <div className="text-center text-[10px] font-bold text-amber-400 uppercase tracking-widest absolute -top-4 left-0 right-0 border border-amber-500/20 bg-amber-500/5 py-1 rounded-md">
+                                          {getLoserRoundTitle(roundNum, totalLBRounds)}
                                         </div>
-                                      ))}
-                                    </div>
-                                  );
-                                })
+                                        {roundMatches.map((match) => (
+                                          <div key={match.id} className="relative group my-4">
+                                            {roundNum > 1 && (
+                                              <div className="absolute left-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
+                                            )}
+                                            {!isFinalRound && (
+                                              <div className="absolute right-[-64px] top-1/2 -translate-y-1/2 w-16 border-t-2 border-slate-800 group-hover:border-amber-500 transition duration-300 z-0" />
+                                            )}
+                                            <div className="relative z-10">
+                                              {renderMatchCard(match)}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  });
+                                })()
                               ) : (
                                 <p className="text-slate-400 text-sm">Nenhuma partida de repescagem.</p>
                               )}

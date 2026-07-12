@@ -3,6 +3,7 @@ import {
   cancelOwnRegistrationHandler,
   adminCancelRegistrationHandler,
   listMyRegistrationsHandler,
+  adminUpdateRegistrationHandler,
 } from "./registrations.controller";
 import { confirmRegistrationPaymentHandler, checkoutRegistrationHandler } from "../payments/payments.controller";
 import { authenticate } from "../../shared/middlewares/authenticate";
@@ -23,6 +24,14 @@ registrationsRoutes.delete(
   authenticate,
   authorize("ADMIN"),
   asyncHandler(adminCancelRegistrationHandler)
+);
+
+// Admin updates registration player name
+registrationsRoutes.patch(
+  "/:id/admin",
+  authenticate,
+  authorize("ADMIN"),
+  asyncHandler(adminUpdateRegistrationHandler)
 );
 
 // RF16 - admin manually confirms payment made outside the platform

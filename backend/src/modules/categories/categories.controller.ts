@@ -95,6 +95,11 @@ export async function updateMatchWinnerHandler(
 ) {
   const matchId = req.params.matchId as string;
   const { winnerId, score } = req.body;
-  const match = await categoriesService.updateMatchWinner(matchId, winnerId, score);
+  let match;
+  if (winnerId === "RESET") {
+    match = await categoriesService.resetMatchWinner(matchId);
+  } else {
+    match = await categoriesService.updateMatchWinner(matchId, winnerId, score);
+  }
   res.status(200).json(match);
 }

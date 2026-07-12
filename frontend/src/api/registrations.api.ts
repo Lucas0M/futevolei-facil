@@ -37,12 +37,23 @@ export async function adminCancelTeam(teamId: string): Promise<Team> {
   return data;
 }
 
-export async function updateTeamPartnerName(
+export async function adminCancelRegistration(registrationId: string): Promise<Registration> {
+  const { data } = await httpClient.delete(`/registrations/${registrationId}/admin`);
+  return data;
+}
+
+export async function adminUpdateTeam(
   teamId: string,
-  partnerName: string,
+  body: { partnerName?: string; customOwnerName?: string }
 ): Promise<Team> {
-  const { data } = await httpClient.patch(`/teams/${teamId}/partner`, {
-    partnerName,
-  });
+  const { data } = await httpClient.patch(`/teams/${teamId}/admin`, body);
+  return data;
+}
+
+export async function adminUpdateRegistration(
+  registrationId: string,
+  body: { customPlayerName: string }
+): Promise<Registration> {
+  const { data } = await httpClient.patch(`/registrations/${registrationId}/admin`, body);
   return data;
 }

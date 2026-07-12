@@ -33,9 +33,15 @@ export async function adminCancelTeamHandler(req: Request, res: Response) {
 }
 
 export async function updateTeamPartnerHandler(req: Request, res: Response) {
-  const input = updateTeamPartnerSchema.parse(req.body);
-  const team = await registrationsService.updateTeamPartnerName(req.params.id, input);
+  const { partnerName, customOwnerName } = req.body;
+  const team = await registrationsService.updateTeamPartnerName(req.params.id, { partnerName, customOwnerName });
   res.status(200).json(team);
+}
+
+export async function adminUpdateRegistrationHandler(req: Request, res: Response) {
+  const { customPlayerName } = req.body;
+  const registration = await registrationsService.updateRegistrationPlayerName(req.params.id, { customPlayerName });
+  res.status(200).json(registration);
 }
 
 export async function listMyRegistrationsHandler(req: Request, res: Response) {

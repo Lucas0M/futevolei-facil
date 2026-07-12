@@ -17,6 +17,9 @@ teamsRoutes.delete("/:id/admin", authenticate, authorize("ADMIN"), asyncHandler(
 // Admin edits the partner's name (e.g. partner swap after the fact)
 teamsRoutes.patch("/:id/partner", authenticate, authorize("ADMIN"), asyncHandler(updateTeamPartnerHandler));
 
+// Admin edits partner's name or owner's custom name
+teamsRoutes.patch("/:id/admin", authenticate, authorize("ADMIN"), asyncHandler(updateTeamPartnerHandler));
+
 // RF16 - admin manually confirms payment (FULL, OWNER_SHARE, or PARTNER_SHARE)
 teamsRoutes.post("/:id/confirm-payment", authenticate, authorize("ADMIN"), asyncHandler(confirmTeamPaymentHandler));
 

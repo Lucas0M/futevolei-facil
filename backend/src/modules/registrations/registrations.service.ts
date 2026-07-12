@@ -334,12 +334,31 @@ export async function adminCancelTeam(teamId: string) {
   return prisma.team.update({ where: { id: teamId }, data: { status: "CANCELLED" } });
 }
 
-export async function updateTeamPartnerName(teamId: string, input: UpdateTeamPartnerInput) {
+export async function updateTeamPartnerName(teamId: string, input: { partnerName?: string; customOwnerName?: string }) {
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team) {
     throw new AppError("Inscrição de dupla não encontrada.", 404, "TEAM_NOT_FOUND");
   }
-  return prisma.team.update({ where: { id: teamId }, data: { partnerName: input.partnerName } });
+  return prisma.team.update({
+    where: { id: teamId },
+    data: {
+      partnerName: input.partnerName !== undefined ? input.partnerName : team.partnerName,
+      customOwnerName: input.customOwnerName !== undefined ? input.customOwnerName : team.customOwnerName,
+    }
+  });
+}
+
+export async function updateRegistrationPlayerName(registrationId: string, input: { customPlayerName: string }) {
+  const registration = await prisma.registration.findUnique({ where: { id: registrationId } });
+  if (!registration) {
+    throw new AppError("Inscrição não encontrada.", 404, "REGISTRATION_NOT_FOUND");
+  }
+  return prisma.registration.update({
+    where: { id: registrationId },
+    data: {
+      customPlayerName: input.customPlayerName,
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
