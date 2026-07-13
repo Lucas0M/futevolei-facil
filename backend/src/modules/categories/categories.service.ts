@@ -355,7 +355,7 @@ function getRouteTarget(
   numRound1Matches: number,
   hasReduction: boolean
 ) {
-  const totalLoserRounds = hasReduction ? 2 * totalWinnerRounds - 3 : 2 * totalWinnerRounds - 2;
+  const totalLoserRounds = hasReduction ? (numRound1Matches <= K / 2 ? 2 * totalWinnerRounds - 4 : 2 * totalWinnerRounds - 3) : 2 * totalWinnerRounds - 3;
 
   if (isWinner) {
     if (type === "WINNER") {
@@ -364,8 +364,20 @@ function getRouteTarget(
       }
       if (hasReduction && round === 1) {
         const useOddSpacing = numRound1Matches <= K / 4;
-        const targetPos = useOddSpacing ? 2 * pos - 1 : pos;
-        return { targetType: "WINNER", targetRound: 2, targetPos, targetSlot: "B" as const };
+        if (useOddSpacing) {
+          const targetPos = 2 * pos - 1;
+          return { targetType: "WINNER", targetRound: 2, targetPos, targetSlot: "B" as const };
+        } else {
+          const numPositionsWithBye = K - numRound1Matches;
+          if (pos <= numPositionsWithBye) {
+            return { targetType: "WINNER", targetRound: 2, targetPos: pos, targetSlot: "B" as const };
+          } else {
+            const offset = pos - numPositionsWithBye - 1;
+            const targetPos = numPositionsWithBye + Math.floor(offset / 2) + 1;
+            const targetSlot = offset % 2 === 0 ? "A" as const : "B" as const;
+            return { targetType: "WINNER", targetRound: 2, targetPos, targetSlot };
+          }
+        }
       }
       const nextPos = Math.floor((pos - 1) / 2) + 1;
       const slot = (pos - 1) % 2 === 0 ? "A" as const : "B" as const;
@@ -376,70 +388,64 @@ function getRouteTarget(
         return { targetType: "GRAND_FINAL", targetRound: 1, targetPos: 1, targetSlot: "B" as const };
       }
 
-      if (round === totalLoserRounds - 1) {
-        return { targetType: "LOSER", targetRound: totalLoserRounds, targetPos: 1, targetSlot: "A" as const };
-      }
-
-      if (hasReduction) {
-        if (round === 1) {
-          const L2 = Math.max(0, (K / 2) - numRound1Matches);
-          if (pos <= L2) {
-            return { targetType: "LOSER", targetRound: 2, targetPos: pos, targetSlot: "B" as const };
-          } else {
-            const posInPairs = pos - L2;
-            const targetPos = L2 + Math.floor((posInPairs - 1) / 2) + 1;
-            const slot = (posInPairs - 1) % 2 === 0 ? "A" as const : "B" as const;
-            return { targetType: "LOSER", targetRound: 2, targetPos, targetSlot: slot };
-          }
-        }
-        if (round === 2) {
-          return { targetType: "LOSER", targetRound: 3, targetPos: pos, targetSlot: "B" as const };
-        }
-        if (round % 2 === 0) {
-          return { targetType: "LOSER", targetRound: round + 1, targetPos: pos, targetSlot: "B" as const };
-        }
-        const nextPos = Math.floor((pos - 1) / 2) + 1;
-        const slot = (pos - 1) % 2 === 0 ? "A" as const : "B" as const;
-        return { targetType: "LOSER", targetRound: round + 1, targetPos: nextPos, targetSlot: slot };
+      if (round % 2 !== 0) {
+        // Odd rounds: 1 -> 2, 3 -> 4, 5 -> 6 (same number of matches)
+        const slot = round === 1 ? ("B" as const) : ("A" as const);
+        return { targetType: "LOSER", targetRound: round + 1, targetPos: pos, targetSlot: slot };
       } else {
-        if (round % 2 === 0) {
-          const nextPos = Math.floor((pos - 1) / 2) + 1;
-          const slot = (pos - 1) % 2 === 0 ? "A" as const : "B" as const;
-          return { targetType: "LOSER", targetRound: round + 1, targetPos: nextPos, targetSlot: slot };
-        }
-        return { targetType: "LOSER", targetRound: round + 1, targetPos: pos, targetSlot: "B" as const };
+        // Even rounds: 2 -> 3, 4 -> 5 (half the matches)
+        const nextPos = Math.floor((pos - 1) / 2) + 1;
+        const slot = (pos - 1) % 2 === 0 ? ("A" as const) : ("B" as const);
+        return { targetType: "LOSER", targetRound: round + 1, targetPos: nextPos, targetSlot: slot };
       }
     }
     return null;
   } else {
     if (type === "WINNER") {
       if (round === totalWinnerRounds) {
-        return { targetType: "LOSER", targetRound: totalLoserRounds, targetPos: 1, targetSlot: "B" as const };
+        return { targetType: "THIRD_PLACE", targetRound: 1, targetPos: 1, targetSlot: "A" as const };
       }
       if (hasReduction) {
         if (round === 1) {
-          return { targetType: "LOSER", targetRound: 1, targetPos: pos, targetSlot: "B" as const };
+          if (numRound1Matches <= K / 2) {
+            return { targetType: "LOSER", targetRound: 1, targetPos: pos, targetSlot: "B" as const };
+          } else {
+            const numPositionsWithBye = K - numRound1Matches;
+            if (pos <= numPositionsWithBye) {
+              const loserRound1Matches = numRound1Matches - K / 2;
+              return { targetType: "LOSER", targetRound: 2, targetPos: loserRound1Matches + pos, targetSlot: "B" as const };
+            } else {
+              const offset = pos - numPositionsWithBye - 1;
+              const targetPos = Math.floor(offset / 2) + 1;
+              const targetSlot = offset % 2 === 0 ? "A" as const : "B" as const;
+              return { targetType: "LOSER", targetRound: 1, targetPos, targetSlot };
+            }
+          }
         }
         if (round === 2) {
           const useOddSpacing = numRound1Matches <= K / 4;
-          const receivesWinner = useOddSpacing ? (pos % 2 !== 0) : (pos <= numRound1Matches);
-          if (receivesWinner) {
+          const receivesWinner = useOddSpacing ? (pos % 2 !== 0 && (pos + 1) / 2 <= numRound1Matches) : (pos <= numRound1Matches);
+          const loserRound1Matches = numRound1Matches <= K / 2 ? numRound1Matches : numRound1Matches - K / 2;
+          const numWinnerRound2LosersToLoserRound1 = Math.max(0, 2 * loserRound1Matches - numRound1Matches);
+
+          const goesToLoserRound1 = receivesWinner && (useOddSpacing || pos <= numWinnerRound2LosersToLoserRound1);
+
+          if (goesToLoserRound1) {
             const r1_pos = useOddSpacing ? (pos + 1) / 2 : pos;
-            const targetPos = numRound1Matches + 1 - r1_pos;
+            const targetPos = useOddSpacing ? (numRound1Matches + 1 - r1_pos) : (numWinnerRound2LosersToLoserRound1 + 1 - r1_pos);
             return { targetType: "LOSER", targetRound: 1, targetPos, targetSlot: "A" as const };
           } else {
             let j = 0;
             for (let p = 1; p <= pos; p++) {
-              const pReceives = useOddSpacing ? (p % 2 !== 0) : (p <= numRound1Matches);
-              if (!pReceives) j++;
+              const pReceives = useOddSpacing ? (p % 2 !== 0 && (p + 1) / 2 <= numRound1Matches) : (p <= numRound1Matches);
+              const pGoesToR1 = pReceives && (useOddSpacing || p <= numWinnerRound2LosersToLoserRound1);
+              if (!pGoesToR1) j++;
             }
-            const L2 = (K / 2) - numRound1Matches;
-            const targetPos = L2 + 1 - j;
-            return { targetType: "LOSER", targetRound: 2, targetPos, targetSlot: "A" as const };
+            return { targetType: "LOSER", targetRound: 2, targetPos: j, targetSlot: "A" as const };
           }
         }
         if (round === totalWinnerRounds - 1) {
-          return { targetType: "LOSER", targetRound: 2 * round - 3, targetPos: pos, targetSlot: "A" as const };
+          return { targetType: "LOSER", targetRound: 2 * round - 2, targetPos: pos, targetSlot: "B" as const };
         }
         return { targetType: "LOSER", targetRound: 2 * round - 2, targetPos: pos, targetSlot: "A" as const };
       } else {
@@ -449,6 +455,11 @@ function getRouteTarget(
           return { targetType: "LOSER", targetRound: 1, targetPos, targetSlot: slot };
         }
         return { targetType: "LOSER", targetRound: 2 * round - 2, targetPos: pos, targetSlot: "A" as const };
+      }
+    }
+    if (type === "LOSER") {
+      if (round === totalLoserRounds) {
+        return { targetType: "THIRD_PLACE", targetRound: 1, targetPos: 1, targetSlot: "B" as const };
       }
     }
   }
@@ -494,6 +505,7 @@ export async function generatePersistentBracket(categoryId: string) {
   const hasReduction = P > K;
   const numRound1Matches = hasReduction ? P - K : 0;
   const totalWinnerRounds = hasReduction ? Math.log2(K) + 1 : Math.log2(K);
+  const totalLoserRounds = hasReduction ? (numRound1Matches <= K / 2 ? 2 * totalWinnerRounds - 4 : 2 * totalWinnerRounds - 3) : 2 * totalWinnerRounds - 3;
 
   return prisma.$transaction(async (tx) => {
     await tx.match.deleteMany({ where: { categoryId } });
@@ -559,8 +571,10 @@ export async function generatePersistentBracket(categoryId: string) {
 
     // 2. Loser Bracket Matches
     if (hasReduction) {
-      // Loser Round 1: numRound1Matches matches
-      for (let pos = 1; pos <= numRound1Matches; pos++) {
+      const loserRound1Matches = numRound1Matches <= K / 2 ? numRound1Matches : numRound1Matches - K / 2;
+      const loserRound2Matches = K / 2;
+      // Loser Round 1: loserRound1Matches matches
+      for (let pos = 1; pos <= loserRound1Matches; pos++) {
         matchesToCreate.push({
           categoryId,
           round: 1,
@@ -574,9 +588,7 @@ export async function generatePersistentBracket(categoryId: string) {
           score: null,
         });
       }
-      // Loser Round 2: L2 + (W1 - L2) / 2 matches
-      const L2 = Math.max(0, (K / 2) - numRound1Matches);
-      const loserRound2Matches = L2 + Math.floor((numRound1Matches - L2) / 2);
+      // Loser Round 2: loserRound2Matches matches
       for (let pos = 1; pos <= loserRound2Matches; pos++) {
         matchesToCreate.push({
           categoryId,
@@ -592,7 +604,6 @@ export async function generatePersistentBracket(categoryId: string) {
         });
       }
       // Loser Rounds 3 onwards
-      const totalLoserRounds = 2 * totalWinnerRounds - 3;
       for (let r = 3; r <= totalLoserRounds; r++) {
         let matchesInRound = 0;
         if (r % 2 !== 0) {
@@ -602,7 +613,7 @@ export async function generatePersistentBracket(categoryId: string) {
           const prevRound = r - 1;
           const wr = (prevRound + 3) / 2;
           const prevMatches = K / Math.pow(2, wr - 1);
-          matchesInRound = Math.floor(prevMatches / 2);
+          matchesInRound = prevMatches;
         }
         for (let pos = 1; pos <= matchesInRound; pos++) {
           matchesToCreate.push({
@@ -622,37 +633,41 @@ export async function generatePersistentBracket(categoryId: string) {
     } else {
       for (let wr = 1; wr <= totalWinnerRounds - 1; wr++) {
         const minorRound = 2 * wr - 1;
-        const minorMatches = K / Math.pow(2, wr + 1);
-        for (let pos = 1; pos <= minorMatches; pos++) {
-          matchesToCreate.push({
-            categoryId,
-            round: minorRound,
-            position: pos,
-            bracketType: "LOSER",
-            competitorAId: null,
-            competitorAName: null,
-            competitorBId: null,
-            competitorBName: null,
-            winnerId: null,
-            score: null,
-          });
+        if (minorRound <= totalLoserRounds) {
+          const minorMatches = K / Math.pow(2, wr + 1);
+          for (let pos = 1; pos <= minorMatches; pos++) {
+            matchesToCreate.push({
+              categoryId,
+              round: minorRound,
+              position: pos,
+              bracketType: "LOSER",
+              competitorAId: null,
+              competitorAName: null,
+              competitorBId: null,
+              competitorBName: null,
+              winnerId: null,
+              score: null,
+            });
+          }
         }
 
         const majorRound = 2 * wr;
-        const majorMatches = K / Math.pow(2, wr + 1);
-        for (let pos = 1; pos <= majorMatches; pos++) {
-          matchesToCreate.push({
-            categoryId,
-            round: majorRound,
-            position: pos,
-            bracketType: "LOSER",
-            competitorAId: null,
-            competitorAName: null,
-            competitorBId: null,
-            competitorBName: null,
-            winnerId: null,
-            score: null,
-          });
+        if (majorRound <= totalLoserRounds) {
+          const majorMatches = K / Math.pow(2, wr + 1);
+          for (let pos = 1; pos <= majorMatches; pos++) {
+            matchesToCreate.push({
+              categoryId,
+              round: majorRound,
+              position: pos,
+              bracketType: "LOSER",
+              competitorAId: null,
+              competitorAName: null,
+              competitorBId: null,
+              competitorBName: null,
+              winnerId: null,
+              score: null,
+            });
+          }
         }
       }
     }
@@ -677,6 +692,20 @@ export async function generatePersistentBracket(categoryId: string) {
       round: 1,
       position: 1,
       bracketType: "RESET_FINAL",
+      competitorAId: null,
+      competitorAName: null,
+      competitorBId: null,
+      competitorBName: null,
+      winnerId: null,
+      score: null,
+    });
+
+    // 5. Third Place Match
+    matchesToCreate.push({
+      categoryId,
+      round: 1,
+      position: 1,
+      bracketType: "THIRD_PLACE",
       competitorAId: null,
       competitorAName: null,
       competitorBId: null,
@@ -716,7 +745,7 @@ export async function generatePersistentBracket(categoryId: string) {
       const useOddSpacing = numRound1Matches <= K / 4;
       let byeIdx = 2 * numRound1Matches;
       for (let pos = 1; pos <= K / 2; pos++) {
-        const receivesWinner = useOddSpacing ? (pos % 2 !== 0) : (pos <= numRound1Matches);
+        const receivesWinner = useOddSpacing ? (pos % 2 !== 0 && (pos + 1) / 2 <= numRound1Matches) : (pos <= numRound1Matches);
         const match = round2WinnerMatches.find((m) => m.position === pos);
         if (match) {
           if (receivesWinner) {
@@ -904,8 +933,9 @@ export async function updateMatchWinner(matchId: string, winnerId: string, score
     const hasReduction = exactP > K;
     const numRound1Matches = hasReduction ? exactP - K : 0;
 
-    if (match.bracketType === "WINNER" && loserId && loserName) {
-      await routeLoser(tx, match.categoryId, match.round, match.position, loserId, loserName, totalWinnerRounds, K, numRound1Matches, hasReduction);
+    const totalLoserRounds = matches.filter((m: any) => m.bracketType === "LOSER").reduce((max, m) => m.round > max ? m.round : max, 0);
+    if ((match.bracketType === "WINNER" || (match.bracketType === "LOSER" && match.round === totalLoserRounds)) && loserId && loserName) {
+      await routeLoser(tx, match.categoryId, match.round, match.position, loserId, loserName, totalWinnerRounds, K, numRound1Matches, hasReduction, match.bracketType);
     }
 
     await advanceWinner(tx, match.categoryId, match.round, match.position, winnerId, winnerName, match.bracketType, totalWinnerRounds, K, numRound1Matches, hasReduction);
@@ -925,10 +955,11 @@ async function routeLoser(
   totalWinnerRounds: number,
   K: number,
   numRound1Matches: number,
-  hasReduction: boolean
+  hasReduction: boolean,
+  bracketType: string
 ) {
   if (!loserId) return;
-  const route = getRouteTarget("WINNER", currentRound, currentPosition, false, totalWinnerRounds, K, numRound1Matches, hasReduction);
+  const route = getRouteTarget(bracketType, currentRound, currentPosition, false, totalWinnerRounds, K, numRound1Matches, hasReduction);
   if (!route) return;
 
   const destMatch = await tx.match.findFirst({
@@ -1292,51 +1323,87 @@ export async function recalculateRankings(tx?: any) {
       }
     }
 
-    const semiFinalRound = finalMatch.round - 1;
-    if (semiFinalRound > 0) {
-      const semiFinalMatches = cat.matches.filter((m: any) => m.round === semiFinalRound);
-      const semiFinalLosers: Array<{ name: string; winsCount: number }> = [];
+    const thirdPlaceMatch = cat.matches.find((m: any) => m.bracketType === "THIRD_PLACE");
+    if (thirdPlaceMatch && thirdPlaceMatch.winnerId) {
+      const thirdPlaceName = thirdPlaceMatch.winnerId === thirdPlaceMatch.competitorAId ? thirdPlaceMatch.competitorAName : thirdPlaceMatch.competitorBName;
+      const fourthPlaceName = thirdPlaceMatch.winnerId === thirdPlaceMatch.competitorAId ? thirdPlaceMatch.competitorBName : thirdPlaceMatch.competitorAName;
 
-      for (const sfm of semiFinalMatches) {
-        if (!sfm.winnerId) continue;
-        const loserName = sfm.winnerId === sfm.competitorAId ? sfm.competitorBName : sfm.competitorAName;
-        if (!loserName) continue;
-
-        const winsCount = cat.matches.filter((m: any) => m.winnerId && (m.competitorAName === loserName || m.competitorBName === loserName) && (m.competitorAId === m.winnerId ? m.competitorAName : m.competitorBName) === loserName).length;
-        semiFinalLosers.push({ name: loserName, winsCount });
-      }
-
-      semiFinalLosers.sort((a, b) => b.winsCount - a.winsCount);
-
-      if (semiFinalLosers[0]) {
-        const name3 = semiFinalLosers[0].name;
+      if (thirdPlaceName) {
         if (isDuo) {
-          const parts = name3.split(" + ");
+          const parts = thirdPlaceName.split(" + ");
           if (parts.length === 2) {
             addDuoPoints(parts[0], parts[1], 15.0);
             addIndividualPoints(parts[0], 15.0);
             addIndividualPoints(parts[1], 15.0);
           } else {
-            addIndividualPoints(name3, 15.0);
+            addIndividualPoints(thirdPlaceName, 15.0);
           }
         } else {
-          addIndividualPoints(name3, 15.0);
+          addIndividualPoints(thirdPlaceName, 15.0);
         }
       }
 
-      if (semiFinalLosers[1]) {
-        const name4 = semiFinalLosers[1].name;
+      if (fourthPlaceName) {
         if (isDuo) {
-          const parts = name4.split(" + ");
+          const parts = fourthPlaceName.split(" + ");
           if (parts.length === 2) {
             addDuoPoints(parts[0], parts[1], 12.0);
             addIndividualPoints(parts[0], 12.0);
             addIndividualPoints(parts[1], 12.0);
           } else {
-            addIndividualPoints(name4, 12.0);
+            addIndividualPoints(fourthPlaceName, 12.0);
           }
         } else {
-          addIndividualPoints(name4, 12.0);
+          addIndividualPoints(fourthPlaceName, 12.0);
+        }
+      }
+    } else {
+      const semiFinalRound = finalMatch.round - 1;
+      if (semiFinalRound > 0) {
+        const semiFinalMatches = cat.matches.filter((m: any) => m.round === semiFinalRound);
+        const semiFinalLosers: Array<{ name: string; winsCount: number }> = [];
+
+        for (const sfm of semiFinalMatches) {
+          if (!sfm.winnerId) continue;
+          const loserName = sfm.winnerId === sfm.competitorAId ? sfm.competitorBName : sfm.competitorAName;
+          if (!loserName) continue;
+
+          const winsCount = cat.matches.filter((m: any) => m.winnerId && (m.competitorAName === loserName || m.competitorBName === loserName) && (m.competitorAId === m.winnerId ? m.competitorAName : m.competitorBName) === loserName).length;
+          semiFinalLosers.push({ name: loserName, winsCount });
+        }
+
+        semiFinalLosers.sort((a, b) => b.winsCount - a.winsCount);
+
+        if (semiFinalLosers[0]) {
+          const name3 = semiFinalLosers[0].name;
+          if (isDuo) {
+            const parts = name3.split(" + ");
+            if (parts.length === 2) {
+              addDuoPoints(parts[0], parts[1], 15.0);
+              addIndividualPoints(parts[0], 15.0);
+              addIndividualPoints(parts[1], 15.0);
+            } else {
+              addIndividualPoints(name3, 15.0);
+            }
+          } else {
+            addIndividualPoints(name3, 15.0);
+          }
+        }
+
+        if (semiFinalLosers[1]) {
+          const name4 = semiFinalLosers[1].name;
+          if (isDuo) {
+            const parts = name4.split(" + ");
+            if (parts.length === 2) {
+              addDuoPoints(parts[0], parts[1], 12.0);
+              addIndividualPoints(parts[0], 12.0);
+              addIndividualPoints(parts[1], 12.0);
+            } else {
+              addIndividualPoints(name4, 12.0);
+            }
+          } else {
+            addIndividualPoints(name4, 12.0);
+          }
         }
       }
     }
