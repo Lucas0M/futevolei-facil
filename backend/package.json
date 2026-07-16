@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-      "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-      "build": "npx prisma generate && tsc",
-      "start": "node dist/server.js",
-      "prisma:generate": "npx prisma generate",
-      "prisma:migrate": "npx prisma migrate dev",
-      "prisma:deploy": "npx prisma migrate deploy",
-      "test": "cross-env NODE_ENV=test vitest run"
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "npx prisma generate && tsc",
+    "start": "node dist/server.js",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:deploy": "npx prisma migrate deploy",
+    "test": "cross-env NODE_ENV=test vitest run"
   },
   "description": "- Code, comments, variable/table/route names: **English**. - User-facing text (UI labels, error messages shown to the user, emails): **Portuguese**.",
   "main": "index.js",
