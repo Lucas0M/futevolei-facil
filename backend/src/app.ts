@@ -5,7 +5,10 @@ import { errorHandler } from "./shared/middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { tournamentsRoutes } from "./modules/tournaments/tournaments.routes";
-import { categoriesRoutes, tournamentCategoriesRoutes } from "./modules/categories/categories.routes";
+import {
+  categoriesRoutes,
+  tournamentCategoriesRoutes,
+} from "./modules/categories/categories.routes";
 import { categoryRegistrationsRoutes } from "./modules/registrations/categoryRegistrations.routes";
 import { registrationsRoutes } from "./modules/registrations/registrations.routes";
 import { teamsRoutes } from "./modules/registrations/teams.routes";
@@ -18,7 +21,7 @@ export function createApp() {
   const app = express();
 
   app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
-  app.use(express.json());
+  app.use(express.json({ limit: "10mb" }));
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
