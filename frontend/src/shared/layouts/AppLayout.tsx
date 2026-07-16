@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { LogOut, Shield } from "lucide-react";
+import { LogOut, Shield, Users } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
 export function AppLayout() {
@@ -22,14 +22,10 @@ export function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05080F] text-white relative overflow-hidden">
-      {/* Glow */}
-      <div className="pointer-events-none absolute left-0 top-0 h-[420px] w-[420px] rounded-full bg-emerald-500/10 blur-[140px]" />
-      <div className="pointer-events-none absolute right-0 top-0 h-[320px] w-[320px] rounded-full bg-emerald-400/5 blur-[120px]" />
-
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#070C15]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-8">
+    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07090e]/80 backdrop-blur-md">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           {/* Logo */}
           <Link
             to="/"
@@ -46,29 +42,17 @@ export function AppLayout() {
             </div>
           </Link>
 
-          {/* Menu */}
-          <nav className="flex items-center gap-2">
-            <Link
-              to="/torneios"
-              className={linkClass("/torneios")}
-            >
+          {/* Nav */}
+          <nav className="hidden md:flex items-center gap-1.5">
+            <Link to="/torneios" className={linkClass("/torneios")}>
               Torneios
             </Link>
-
-            <Link
-              to="/historico"
-              className={linkClass("/historico")}
-            >
+            <Link to="/historico" className={linkClass("/historico")}>
               Histórico
             </Link>
-
-            <Link
-              to="/ranking"
-              className={linkClass("/ranking")}
-            >
+            <Link to="/ranking" className={linkClass("/ranking")}>
               Ranking
             </Link>
-
             {user && (
               <Link
                 to="/minhas-inscricoes"
@@ -79,13 +63,22 @@ export function AppLayout() {
             )}
 
             {user?.role === "ADMIN" && (
-              <Link
-                to="/admin"
-                className={`flex items-center gap-1.5 ${linkClass("/admin")}`}
-              >
-                <Shield size={16} />
-                Admin
-              </Link>
+              <>
+                <Link
+                  to="/admin"
+                  className={`flex items-center gap-1.5 ${linkClass("/admin")}`}
+                >
+                  <Shield size={16} />
+                  Admin
+                </Link>
+                <Link
+                  to="/admin/atletas"
+                  className={`flex items-center gap-1.5 ${linkClass("/admin/atletas")}`}
+                >
+                  <Users size={16} />
+                  Atletas
+                </Link>
+              </>
             )}
           </nav>
 

@@ -42,6 +42,7 @@ exports.exportCategoryRegistrantsHandler = exportCategoryRegistrantsHandler;
 exports.generateCategoryBracketHandler = generateCategoryBracketHandler;
 exports.generatePersistentBracketHandler = generatePersistentBracketHandler;
 exports.updateMatchWinnerHandler = updateMatchWinnerHandler;
+exports.updateMatchManualHandler = updateMatchManualHandler;
 const categoriesService = __importStar(require("./categories.service"));
 const categoryExportService = __importStar(require("./categoryExport.service"));
 const categories_schema_1 = require("./categories.schema");
@@ -86,13 +87,25 @@ async function generateCategoryBracketHandler(req, res) {
 }
 async function generatePersistentBracketHandler(req, res) {
     const categoryId = req.params.id;
-    const bracket = await categoriesService.generatePersistentBracket(categoryId);
+    const { bracketStyle, numGroups } = req.body;
+    const bracket = await categoriesService.generatePersistentBracket(categoryId, bracketStyle, numGroups ? Number(numGroups) : undefined);
     res.status(200).json(bracket);
 }
 async function updateMatchWinnerHandler(req, res) {
     const matchId = req.params.matchId;
     const { winnerId, score } = req.body;
-    const match = await categoriesService.updateMatchWinner(matchId, winnerId, score);
+    let match;
+    if (winnerId === "RESET") {
+        match = await categoriesService.resetMatchWinner(matchId);
+    }
+    else {
+        match = await categoriesService.updateMatchWinner(matchId, winnerId, score);
+    }
+    res.status(200).json(match);
+}
+async function updateMatchManualHandler(req, res) {
+    const matchId = req.params.matchId;
+    const match = await categoriesService.updateMatchManual(matchId, req.body);
     res.status(200).json(match);
 }
 //# sourceMappingURL=categories.controller.js.map

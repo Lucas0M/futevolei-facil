@@ -8,7 +8,7 @@ exports.createCategorySchema = zod_1.z.object({
     format: zod_1.z.nativeEnum(client_1.CategoryFormat),
     entryFee: zod_1.z.coerce.number().positive("Valor da inscrição deve ser positivo."),
     maxSlots: zod_1.z.coerce.number().int().positive("Número de vagas deve ser positivo."),
-    registrationDeadline: zod_1.z.coerce.date({ errorMap: () => ({ message: "Data limite de inscrição inválida." }) }),
+    registrationDeadline: zod_1.z.coerce.date({ message: "Data limite de inscrição inválida." }),
     reservationTtlMinutes: zod_1.z.coerce.number().int().positive().default(20),
     refundFullBeforeDays: zod_1.z.coerce.number().int().nonnegative().optional(),
     refundPartialBeforeDays: zod_1.z.coerce.number().int().nonnegative().optional(),

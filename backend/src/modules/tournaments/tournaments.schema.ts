@@ -4,7 +4,7 @@ import { EntityStatus } from "@prisma/client";
 export const createTournamentSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres."),
   description: z.string().optional(),
-  eventDate: z.coerce.date({ errorMap: () => ({ message: "Data do evento inválida." }) }),
+  eventDate: z.coerce.date({ message: "Data do evento inválida." }),
   location: z.string().min(3, "Local é obrigatório."),
 });
 export type CreateTournamentInput = z.infer<typeof createTournamentSchema>;

@@ -8,39 +8,39 @@ export async function createRegistrationHandler(req: Request, res: Response) {
     ? createTeamRegistrationSchema.parse(req.body)
     : createIndividualRegistrationSchema.parse(req.body ?? {});
     
-  const registration = await registrationsService.createRegistration(req.params.categoryId, req.user!.id, req.user!.role, parsed);
+  const registration = await registrationsService.createRegistration(req.params.categoryId as string, req.user!.id, req.user!.role, parsed);
   res.status(201).json(registration);
 }
 
 export async function cancelOwnRegistrationHandler(req: Request, res: Response) {
-  const registration = await registrationsService.cancelOwnRegistration(req.params.id, req.user!.id);
+  const registration = await registrationsService.cancelOwnRegistration(req.params.id as string, req.user!.id);
   res.status(200).json(registration);
 }
 
 export async function cancelOwnTeamHandler(req: Request, res: Response) {
-  const team = await registrationsService.cancelOwnTeam(req.params.id, req.user!.id);
+  const team = await registrationsService.cancelOwnTeam(req.params.id as string, req.user!.id);
   res.status(200).json(team);
 }
 
 export async function adminCancelRegistrationHandler(req: Request, res: Response) {
-  const registration = await registrationsService.adminCancelRegistration(req.params.id);
+  const registration = await registrationsService.adminCancelRegistration(req.params.id as string);
   res.status(200).json(registration);
 }
 
 export async function adminCancelTeamHandler(req: Request, res: Response) {
-  const team = await registrationsService.adminCancelTeam(req.params.id);
+  const team = await registrationsService.adminCancelTeam(req.params.id as string);
   res.status(200).json(team);
 }
 
 export async function updateTeamPartnerHandler(req: Request, res: Response) {
   const { partnerName, customOwnerName } = req.body;
-  const team = await registrationsService.updateTeamPartnerName(req.params.id, { partnerName, customOwnerName });
+  const team = await registrationsService.updateTeamPartnerName(req.params.id as string, { partnerName, customOwnerName });
   res.status(200).json(team);
 }
 
 export async function adminUpdateRegistrationHandler(req: Request, res: Response) {
   const { customPlayerName } = req.body;
-  const registration = await registrationsService.updateRegistrationPlayerName(req.params.id, { customPlayerName });
+  const registration = await registrationsService.updateRegistrationPlayerName(req.params.id as string, { customPlayerName });
   res.status(200).json(registration);
 }
 

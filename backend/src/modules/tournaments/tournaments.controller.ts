@@ -10,17 +10,17 @@ export async function createTournamentHandler(req: Request, res: Response) {
 
 export async function updateTournamentHandler(req: Request, res: Response) {
   const input = updateTournamentSchema.parse(req.body);
-  const tournament = await tournamentsService.updateTournament(req.params.id, input);
+  const tournament = await tournamentsService.updateTournament(req.params.id as string, input);
   res.status(200).json(tournament);
 }
 
 export async function cancelTournamentHandler(req: Request, res: Response) {
-  const tournament = await tournamentsService.deleteTournament(req.params.id);
+  const tournament = await tournamentsService.deleteTournament(req.params.id as string);
   res.status(200).json(tournament);
 }
 
 export async function publishTournamentHandler(req: Request, res: Response) {
-  const tournament = await tournamentsService.publishTournament(req.params.id);
+  const tournament = await tournamentsService.publishTournament(req.params.id as string);
   res.status(200).json(tournament);
 }
 
@@ -31,11 +31,11 @@ export async function listTournamentsHandler(req: Request, res: Response) {
 }
 
 export async function getTournamentDetailHandler(req: Request, res: Response) {
-  const tournament = await tournamentsService.getTournamentDetail(req.params.id, req.user?.role ?? "PLAYER");
+  const tournament = await tournamentsService.getTournamentDetail(req.params.id as string, req.user?.role ?? "PLAYER");
   res.status(200).json(tournament);
 }
 
 export async function getTournamentPendingPaymentsHandler(req: Request, res: Response) {
-  const pendingPayments = await tournamentsService.getTournamentPendingPayments(req.params.id);
+  const pendingPayments = await tournamentsService.getTournamentPendingPayments(req.params.id as string);
   res.status(200).json(pendingPayments);
 }

@@ -17,6 +17,7 @@ exports.categoriesRoutes.get("/:id/export", authenticate_1.authenticate, (0, aut
 exports.categoriesRoutes.get("/:id/bracket", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(categories_controller_1.generateCategoryBracketHandler));
 exports.categoriesRoutes.post("/:id/bracket", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(categories_controller_1.generatePersistentBracketHandler));
 exports.categoriesRoutes.patch("/matches/:matchId", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(categories_controller_1.updateMatchWinnerHandler));
+exports.categoriesRoutes.patch("/matches/:matchId/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(categories_controller_1.updateMatchManualHandler));
 // Mounted at /api/tournaments - nested creation route
 exports.tournamentCategoriesRoutes = (0, express_1.Router)({ mergeParams: true });
 exports.tournamentCategoriesRoutes.post("/:tournamentId/categories", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(categories_controller_1.createCategoryHandler));

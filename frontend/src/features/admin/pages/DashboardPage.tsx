@@ -13,7 +13,6 @@ import {
   PlusCircle,
   RefreshCw,
   Sparkles,
-  Swords,
   Trash2,
   X,
   Trophy,
@@ -21,7 +20,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getDashboardSummary } from "../../../api/dashboard.api";
-import { generateCategoryBracket } from "../../../api/categories.api";
 import {
   createTournament,
   deleteTournament,
@@ -31,13 +29,11 @@ import {
 } from "../../../api/tournaments.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import {
-  formatLabel,
   statusBadgeClasses,
   statusLabel,
 } from "../../../shared/utils/tournamentLabels";
 import type {
   DashboardSummary,
-  GeneratedBracket,
   Tournament,
   TournamentFormInput,
 } from "../../../types/api.types";
@@ -54,10 +50,6 @@ export function DashboardPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [bracket, setBracket] = useState<GeneratedBracket | null>(null);
-  const [generatingCategoryId, setGeneratingCategoryId] = useState<
-    string | null
-  >(null);
   const [isSavingTournament, setIsSavingTournament] = useState(false);
   const [deletingTournamentId, setDeletingTournamentId] = useState<
     string | null
@@ -94,23 +86,6 @@ export function DashboardPage() {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
-
-  async function handleGenerateBracket(categoryId: string) {
-    setGeneratingCategoryId(categoryId);
-    setError(null);
-
-    try {
-      const result = await generateCategoryBracket(categoryId);
-      setBracket(result);
-    } catch (err) {
-      setBracket(null);
-      setError(
-        getApiErrorMessage(err, "Não foi possível gerar o chaveamento."),
-      );
-    } finally {
-      setGeneratingCategoryId(null);
-    }
-  }
 
   function handleSelectTournament(tournament: Tournament) {
     setEditingTournamentId(tournament.id);
@@ -291,70 +266,7 @@ export function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[1fr]">
 
-        <section>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-white">
-                Chaveamento automático
-              </h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Gera a primeira rodada com base nos inscritos confirmados.
-              </p>
-            </div>
-            <Swords className="h-5 w-5 text-emerald-400" />
-          </div>
-
-          {summary.bracketCandidates.length === 0 ? (
-            <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-400">
-              Nenhuma categoria pronta para chaveamento neste momento.
-            </div>
-          ) : (
-            <div className="mt-3 space-y-3">
-              {summary.bracketCandidates.map((category) => (
-                <article
-                  key={category.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-sm text-slate-400">
-                        {category.tournamentName}
-                      </p>
-                      <h3 className="mt-1 text-base font-semibold text-white">
-                        {category.categoryName}
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-300">
-                        {category.confirmedEntriesCount} confirmados ·{" "}
-                        {formatLabel(category.format)}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(category.status)}`}
-                    >
-                      {statusLabel(category.status)}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={() => handleGenerateBracket(category.id)}
-                    disabled={generatingCategoryId === category.id}
-                    className="mt-4 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
-                  >
-                    {generatingCategoryId === category.id
-                      ? "Gerando..."
-                      : "Gerar chaveamento"}
-                  </button>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {bracket && <BracketPanel bracket={bracket} />}
 
       <TournamentManagementPanel
         tournaments={tournaments}
@@ -411,119 +323,7 @@ function StatusPill({ label, value }: { label: string; value: number }) {
   );
 }
 
-function BracketPanel({ bracket }: { bracket: GeneratedBracket }) {
-  return (
-    <section className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
-      <div className="flex flex-col gap-3 border-b border-slate-800 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm text-emerald-400">Chaveamento gerado</p>
-          <h2 className="mt-1 text-2xl font-black text-white">
-            {bracket.categoryName}
-          </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            {bracket.tournamentName} · {bracket.participantCount} participantes
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-          <Sparkles className="h-4 w-4 text-emerald-400" />
-          Chaveamento automático da primeira rodada
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-[1.4fr_0.6fr]">
-        <div className="space-y-3">
-          {bracket.matches.length === 0 ? (
-            <p className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-slate-400">
-              Não há confrontos suficientes para montar a primeira rodada.
-            </p>
-          ) : (
-            bracket.matches.map((match) => (
-              <div
-                key={match.position}
-                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
-              >
-                <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[0.25em] text-slate-500">
-                  <span>Confronto {match.position}</span>
-                  <span>Seed automático</span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <BracketCompetitor
-                    label="Casa"
-                    competitor={match.competitorA}
-                  />
-                  {match.competitorB ? (
-                    <BracketCompetitor
-                      label="Fora"
-                      competitor={match.competitorB}
-                    />
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-4 text-sm text-slate-500">
-                      Bye automático
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <aside className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
-              Classificados diretos
-            </p>
-            <p className="mt-1 text-sm text-slate-300">
-              Entram sem confronto quando há número ímpar.
-            </p>
-          </div>
-
-          {bracket.byes.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhum bye gerado.</p>
-          ) : (
-            <div className="space-y-2">
-              {bracket.byes.map((participant) => (
-                <div
-                  key={participant.id}
-                  className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
-                >
-                  <p className="font-medium text-white">{participant.name}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Inscrito em{" "}
-                    {new Date(participant.registeredAt).toLocaleDateString(
-                      "pt-BR",
-                    )}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </aside>
-      </div>
-    </section>
-  );
-}
-
-function BracketCompetitor({
-  label,
-  competitor,
-}: {
-  label: string;
-  competitor: GeneratedBracket["matches"][number]["competitorA"];
-}) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-      <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 font-semibold text-white">{competitor.name}</p>
-      <p className="mt-1 text-xs text-slate-500">
-        Inscrito em{" "}
-        {new Date(competitor.registeredAt).toLocaleDateString("pt-BR")}
-      </p>
-    </div>
-  );
-}
 
 function TournamentManagementPanel({
   tournaments,

@@ -6,6 +6,7 @@ exports.cancelOwnTeam = cancelOwnTeam;
 exports.adminCancelRegistration = adminCancelRegistration;
 exports.adminCancelTeam = adminCancelTeam;
 exports.updateTeamPartnerName = updateTeamPartnerName;
+exports.updateRegistrationPlayerName = updateRegistrationPlayerName;
 exports.listMyRegistrations = listMyRegistrations;
 const client_1 = require("@prisma/client");
 const client_2 = require("../../prisma/client");
@@ -280,7 +281,25 @@ async function updateTeamPartnerName(teamId, input) {
     if (!team) {
         throw new AppError_1.AppError("Inscrição de dupla não encontrada.", 404, "TEAM_NOT_FOUND");
     }
-    return client_2.prisma.team.update({ where: { id: teamId }, data: { partnerName: input.partnerName } });
+    return client_2.prisma.team.update({
+        where: { id: teamId },
+        data: {
+            partnerName: input.partnerName !== undefined ? input.partnerName : team.partnerName,
+            customOwnerName: input.customOwnerName !== undefined ? input.customOwnerName : team.customOwnerName,
+        }
+    });
+}
+async function updateRegistrationPlayerName(registrationId, input) {
+    const registration = await client_2.prisma.registration.findUnique({ where: { id: registrationId } });
+    if (!registration) {
+        throw new AppError_1.AppError("Inscrição não encontrada.", 404, "REGISTRATION_NOT_FOUND");
+    }
+    return client_2.prisma.registration.update({
+        where: { id: registrationId },
+        data: {
+            customPlayerName: input.customPlayerName,
+        }
+    });
 }
 // ---------------------------------------------------------------------------
 // LIST MY REGISTRATIONS

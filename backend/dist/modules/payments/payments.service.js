@@ -134,8 +134,24 @@ async function listMyPayments(userId) {
             OR: [{ registration: { userId } }, { team: { ownerUserId: userId } }],
         },
         include: {
-            registration: { include: { tournament: { select: { id: true, name: true } } } },
-            team: { include: { tournament: { select: { id: true, name: true } } } },
+            registration: {
+                include: {
+                    category: {
+                        include: {
+                            tournament: { select: { id: true, name: true } }
+                        }
+                    }
+                }
+            },
+            team: {
+                include: {
+                    category: {
+                        include: {
+                            tournament: { select: { id: true, name: true } }
+                        }
+                    }
+                }
+            },
         },
         orderBy: { createdAt: "desc" },
     });

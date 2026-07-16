@@ -9,6 +9,7 @@ import {
   generateCategoryBracketHandler,
   generatePersistentBracketHandler,
   updateMatchWinnerHandler,
+  updateMatchManualHandler,
 } from "./categories.controller";
 import { authenticate } from "../../shared/middlewares/authenticate";
 import { optionalAuthenticate } from "../../shared/middlewares/optionalAuthenticate";
@@ -65,6 +66,13 @@ categoriesRoutes.patch(
   authorize("ADMIN"),
   asyncHandler(updateMatchWinnerHandler),
 );
+categoriesRoutes.patch(
+  "/matches/:matchId/manual",
+  authenticate,
+  authorize("ADMIN"),
+  asyncHandler(updateMatchManualHandler),
+);
+
 
 // Mounted at /api/tournaments - nested creation route
 export const tournamentCategoriesRoutes = Router({ mergeParams: true });

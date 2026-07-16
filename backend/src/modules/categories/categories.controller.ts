@@ -85,7 +85,12 @@ export async function generatePersistentBracketHandler(
   res: Response,
 ) {
   const categoryId = req.params.id as string;
-  const bracket = await categoriesService.generatePersistentBracket(categoryId);
+  const { bracketStyle, numGroups } = req.body;
+  const bracket = await categoriesService.generatePersistentBracket(
+    categoryId,
+    bracketStyle,
+    numGroups ? Number(numGroups) : undefined,
+  );
   res.status(200).json(bracket);
 }
 
@@ -103,3 +108,13 @@ export async function updateMatchWinnerHandler(
   }
   res.status(200).json(match);
 }
+
+export async function updateMatchManualHandler(
+  req: Request,
+  res: Response,
+) {
+  const matchId = req.params.matchId as string;
+  const match = await categoriesService.updateMatchManual(matchId, req.body);
+  res.status(200).json(match);
+}
+

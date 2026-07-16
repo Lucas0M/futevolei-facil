@@ -6,6 +6,9 @@ export interface DuoRankingEntry {
   playerBName: string;
   wins: number;
   points: number;
+  duoType: "MALE" | "FEMALE" | "MIXED";
+  photoUrlA?: string | null;
+  photoUrlB?: string | null;
   updatedAt: string;
 }
 
@@ -14,6 +17,8 @@ export interface IndividualRankingEntry {
   playerName: string;
   wins: number;
   points: number;
+  gender: "MALE" | "FEMALE";
+  photoUrl?: string | null;
   updatedAt: string;
 }
 
@@ -25,4 +30,40 @@ export async function getDuoRankings(): Promise<DuoRankingEntry[]> {
 export async function getIndividualRankings(): Promise<IndividualRankingEntry[]> {
   const { data } = await httpClient.get<IndividualRankingEntry[]>("/rankings/individual");
   return data;
+}
+
+export async function saveDuoRankingManual(
+  playerAName: string,
+  playerBName: string,
+  wins: number,
+  points: number,
+): Promise<any> {
+  const { data } = await httpClient.post<any>("/rankings/duo/manual", {
+    playerAName,
+    playerBName,
+    wins,
+    points,
+  });
+  return data;
+}
+
+export async function saveIndividualRankingManual(
+  playerName: string,
+  wins: number,
+  points: number,
+): Promise<any> {
+  const { data } = await httpClient.post<any>("/rankings/individual/manual", {
+    playerName,
+    wins,
+    points,
+  });
+  return data;
+}
+
+export async function deleteDuoRanking(id: string): Promise<void> {
+  await httpClient.delete(`/rankings/duo/${id}`);
+}
+
+export async function deleteIndividualRanking(id: string): Promise<void> {
+  await httpClient.delete(`/rankings/individual/${id}`);
 }

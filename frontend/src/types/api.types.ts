@@ -56,6 +56,9 @@ export interface TournamentDetailCategory {
   registrants?: CategoryDetailRegistrant[];
   winnerName?: string | null;
   matches?: Match[];
+  bracketStyle?: string;
+  teams?: any[];
+  registrations?: any[];
 }
 
 export interface Match {

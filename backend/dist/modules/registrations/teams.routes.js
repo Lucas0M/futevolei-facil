@@ -15,6 +15,8 @@ exports.teamsRoutes.delete("/:id", authenticate_1.authenticate, (0, asyncHandler
 exports.teamsRoutes.delete("/:id/admin", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(registrations_controller_1.adminCancelTeamHandler));
 // Admin edits the partner's name (e.g. partner swap after the fact)
 exports.teamsRoutes.patch("/:id/partner", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(registrations_controller_1.updateTeamPartnerHandler));
+// Admin edits partner's name or owner's custom name
+exports.teamsRoutes.patch("/:id/admin", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(registrations_controller_1.updateTeamPartnerHandler));
 // RF16 - admin manually confirms payment (FULL, OWNER_SHARE, or PARTNER_SHARE)
 exports.teamsRoutes.post("/:id/confirm-payment", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(payments_controller_1.confirmTeamPaymentHandler));
 // RF15 - team owner starts a Mercado Pago checkout for their chosen portion

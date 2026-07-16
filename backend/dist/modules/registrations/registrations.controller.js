@@ -39,6 +39,7 @@ exports.cancelOwnTeamHandler = cancelOwnTeamHandler;
 exports.adminCancelRegistrationHandler = adminCancelRegistrationHandler;
 exports.adminCancelTeamHandler = adminCancelTeamHandler;
 exports.updateTeamPartnerHandler = updateTeamPartnerHandler;
+exports.adminUpdateRegistrationHandler = adminUpdateRegistrationHandler;
 exports.listMyRegistrationsHandler = listMyRegistrationsHandler;
 const registrationsService = __importStar(require("./registrations.service"));
 const registrations_schema_1 = require("./registrations.schema");
@@ -67,9 +68,14 @@ async function adminCancelTeamHandler(req, res) {
     res.status(200).json(team);
 }
 async function updateTeamPartnerHandler(req, res) {
-    const input = registrations_schema_1.updateTeamPartnerSchema.parse(req.body);
-    const team = await registrationsService.updateTeamPartnerName(req.params.id, input);
+    const { partnerName, customOwnerName } = req.body;
+    const team = await registrationsService.updateTeamPartnerName(req.params.id, { partnerName, customOwnerName });
     res.status(200).json(team);
+}
+async function adminUpdateRegistrationHandler(req, res) {
+    const { customPlayerName } = req.body;
+    const registration = await registrationsService.updateRegistrationPlayerName(req.params.id, { customPlayerName });
+    res.status(200).json(registration);
 }
 async function listMyRegistrationsHandler(req, res) {
     const result = await registrationsService.listMyRegistrations(req.user.id);

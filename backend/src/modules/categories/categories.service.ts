@@ -174,6 +174,7 @@ export async function getCategoryDetail(
     status: category.status,
     tournament: category.tournament,
     winnerName: category.winnerName,
+    bracketStyle: category.bracketStyle,
     matches: formatMatchupNames(category.matches),
     registrants:
       category.format === "DUO_FIXED"
@@ -466,7 +467,11 @@ function getRouteTarget(
   return null;
 }
 
-export async function generatePersistentBracket(categoryId: string) {
+export async function generatePersistentBracket(
+  categoryId: string,
+  bracketStyle: string = "DOUBLE_ELIMINATION",
+  numGroups: number = 2
+) {
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
     include: {
@@ -484,35 +489,67 @@ export async function generatePersistentBracket(categoryId: string) {
 
   if (!category) throw new AppError("Categoria não encontrada.", 404);
 
-  const participants =
-    category.format === "DUO_FIXED"
-      ? category.teams.map((t) => ({ id: t.id, name: `${t.ownerUser.name} + ${t.partnerName}` }))
-      : category.registrations.map((r) => ({ id: r.id, name: r.customPlayerName ?? r.user.name }));
+  let participants: { id: string; name: string }[] = [];
+  if (category.format === "DUO_FIXED") {
+    participants = category.teams.map((t) => ({ id: t.id, name: `${t.ownerUser.name} + ${t.partnerName}` }));
+  } else if (category.format === "DUO_RANDOM") {
+    const players = category.registrations.map((r) => ({ id: r.id, name: r.customPlayerName ?? r.user.name }));
+    const shuffledPlayers = [...players];
+    for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+    }
+    const paired = [];
+    for (let i = 0; i < shuffledPlayers.length; i += 2) {
+      if (i + 1 < shuffledPlayers.length) {
+        paired.push({
+          id: `${shuffledPlayers[i].id}_${shuffledPlayers[i+1].id}`,
+          name: `${shuffledPlayers[i].name} + ${shuffledPlayers[i+1].name}`
+        });
+      } else {
+        paired.push({
+          id: shuffledPlayers[i].id,
+          name: `${shuffledPlayers[i].name} + [A definir]`
+        });
+      }
+    }
+    participants = paired;
+  } else {
+    participants = category.registrations.map((r) => ({ id: r.id, name: r.customPlayerName ?? r.user.name }));
+  }
 
   if (participants.length < 2) {
     throw new AppError("São necessários ao menos 2 participantes confirmados.", 400);
   }
 
-  const shuffled = shuffleParticipants(participants, Math.random().toString());
-  const P = shuffled.length;
-  
-  let K = 2;
-  while (K * 2 <= P) {
-    K *= 2;
-  }
-  if (P === 2) K = 2;
-
-  const hasReduction = P > K;
-  const numRound1Matches = hasReduction ? P - K : 0;
-  const totalWinnerRounds = hasReduction ? Math.log2(K) + 1 : Math.log2(K);
-  const totalLoserRounds = hasReduction ? (numRound1Matches <= K / 2 ? 2 * totalWinnerRounds - 4 : 2 * totalWinnerRounds - 3) : 2 * totalWinnerRounds - 3;
-
   return prisma.$transaction(async (tx) => {
     await tx.match.deleteMany({ where: { categoryId } });
     await tx.category.update({
       where: { id: categoryId },
-      data: { winnerName: null },
+      data: { winnerName: null, bracketStyle },
     });
+
+    if (bracketStyle === "GROUPS") {
+      await generateGroupsBracketInternal(tx, categoryId, participants, numGroups);
+      return tx.match.findMany({
+        where: { categoryId },
+        orderBy: [{ round: "asc" }, { position: "asc" }],
+      });
+    }
+
+    const shuffled = shuffleParticipants(participants, Math.random().toString());
+    const P = shuffled.length;
+    
+    let K = 2;
+    while (K * 2 <= P) {
+      K *= 2;
+    }
+    if (P === 2) K = 2;
+
+    const hasReduction = P > K;
+    const numRound1Matches = hasReduction ? P - K : 0;
+    const totalWinnerRounds = hasReduction ? Math.log2(K) + 1 : Math.log2(K);
+    const totalLoserRounds = hasReduction ? (numRound1Matches <= K / 2 ? 2 * totalWinnerRounds - 4 : 2 * totalWinnerRounds - 3) : 2 * totalWinnerRounds - 3;
 
     const matchesToCreate: any[] = [];
     
@@ -923,6 +960,7 @@ export async function updateMatchWinner(matchId: string, winnerId: string, score
         teams: { where: { status: "CONFIRMED" } },
       }
     });
+    if (!category) throw new AppError("Categoria não encontrada.", 404);
     const exactP = category.format === "DUO_FIXED" ? category.teams.length : category.registrations.length;
 
     let K = 2;
@@ -1410,11 +1448,16 @@ export async function recalculateRankings(tx?: any) {
   }
 
   const executeSave = async (db: any) => {
-    await db.duoRanking.deleteMany({});
-    await db.individualRanking.deleteMany({});
+    await db.duoRanking.deleteMany({ where: { isManual: false } });
+    await db.individualRanking.deleteMany({ where: { isManual: false } });
 
     for (const [key, stats] of Object.entries(duoStats)) {
       const parts = key.split(" | ");
+      const existingManual = await db.duoRanking.findFirst({
+        where: { playerAName: parts[0], playerBName: parts[1], isManual: true }
+      });
+      if (existingManual) continue;
+
       await db.duoRanking.create({
         data: {
           playerAName: parts[0],
@@ -1426,6 +1469,11 @@ export async function recalculateRankings(tx?: any) {
     }
 
     for (const [name, stats] of Object.entries(indStats)) {
+      const existingManual = await db.individualRanking.findFirst({
+        where: { playerName: name, isManual: true }
+      });
+      if (existingManual) continue;
+
       await db.individualRanking.create({
         data: {
           playerName: name,
@@ -1536,3 +1584,109 @@ export function formatMatchupNames(matches: any[]): any[] {
     };
   });
 }
+
+function generateRoundRobin(participants: any[]): Array<{ competitorA: any, competitorB: any, round: number }> {
+  const list = [...participants];
+  if (list.length % 2 !== 0) {
+    list.push({ id: null, name: "BYE" });
+  }
+  const numParticipants = list.length;
+  const numRounds = numParticipants - 1;
+  const matchesPerRound = numParticipants / 2;
+  const schedule = [];
+
+  for (let round = 1; round <= numRounds; round++) {
+    for (let matchIdx = 0; matchIdx < matchesPerRound; matchIdx++) {
+      const home = (round + matchIdx) % (numParticipants - 1);
+      let away = (numParticipants - 1 - matchIdx + round) % (numParticipants - 1);
+      
+      if (matchIdx === 0) {
+        away = numParticipants - 1;
+      }
+      
+      const competitorA = list[home];
+      const competitorB = list[away];
+      
+      if (competitorA.name !== "BYE" && competitorB.name !== "BYE") {
+        schedule.push({ competitorA, competitorB, round });
+      }
+    }
+  }
+  return schedule;
+}
+
+async function generateGroupsBracketInternal(
+  tx: any,
+  categoryId: string,
+  participants: any[],
+  numGroups: number
+) {
+  // Shuffle participants
+  const shuffled = shuffleParticipants(participants, Math.random().toString());
+  
+  // Distribute into groups
+  const groups: Array<any[]> = Array.from({ length: numGroups }, () => []);
+  shuffled.forEach((p, idx) => {
+    groups[idx % numGroups].push(p);
+  });
+
+  const matchesToCreate: any[] = [];
+  let globalPos = 1;
+
+  for (let i = 0; i < numGroups; i++) {
+    const groupLetter = String.fromCharCode(65 + i); // A, B, C...
+    const groupLabel = `GRUPO_${groupLetter}`;
+    const groupParticipants = groups[i];
+    
+    if (groupParticipants.length < 2) continue;
+
+    // Generate round robin schedule for this group
+    const schedule = generateRoundRobin(groupParticipants);
+    
+    // Create matches
+    for (const matchInfo of schedule) {
+      matchesToCreate.push({
+        categoryId,
+        round: matchInfo.round,
+        position: globalPos++,
+        bracketType: groupLabel, // e.g. "GRUPO_A"
+        competitorAId: matchInfo.competitorA.id,
+        competitorAName: matchInfo.competitorA.name,
+        competitorBId: matchInfo.competitorB.id,
+        competitorBName: matchInfo.competitorB.name,
+      });
+    }
+  }
+
+  if (matchesToCreate.length > 0) {
+    await tx.match.createMany({
+      data: matchesToCreate
+    });
+  }
+}
+
+export async function updateMatchManual(
+  matchId: string,
+  data: {
+    competitorAId?: string | null;
+    competitorAName?: string | null;
+    competitorBId?: string | null;
+    competitorBName?: string | null;
+    winnerId?: string | null;
+    score?: string | null;
+  }
+) {
+  // Directly update the match record in the database
+  const updatedMatch = await prisma.match.update({
+    where: { id: matchId },
+    data,
+  });
+
+  // Recalculate rankings if we set a winner manually
+  await prisma.$transaction(async (tx) => {
+    await recalculateRankings(tx);
+  });
+
+  return updatedMatch;
+}
+

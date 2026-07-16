@@ -9,7 +9,8 @@ import {
 } from "../../../api/tournaments.api";
 import { confirmRegistrationPayment, confirmTeamPayment, type TeamPaymentPortion } from "../../../api/payments.api";
 import { createRegistration, adminCancelRegistration, adminCancelTeam, adminUpdateRegistration, adminUpdateTeam } from "../../../api/registrations.api";
-import { createCategory, publishCategory, updateCategory, deleteCategory, generatePersistentBracket, updateMatchWinner } from "../../../api/categories.api";
+import { createCategory, publishCategory, updateCategory, deleteCategory, generatePersistentBracket, updateMatchWinner, updateMatchManual } from "../../../api/categories.api";
+import { getPlayers, type Player } from "../../../api/players.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import { statusBadgeClasses, statusLabel, formatLabel, slotsUnitLabel } from "../../../shared/utils/tournamentLabels";
 import type { TournamentDetail, TournamentFormInput, PendingConfirmationEntry, TournamentDetailCategory } from "../../../types/api.types";
@@ -80,6 +81,22 @@ export function AdminTournamentDetailPage() {
   const [isGeneratingBracketId, setIsGeneratingBracketId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeTabs, setActiveTabs] = useState<Record<string, "WINNER" | "LOSER" | "FINALS">>({});
+
+  // Group Phase and Manual Editing states
+  const [genBracketStyle, setGenBracketStyle] = useState<string>("DOUBLE_ELIMINATION");
+  const [genNumGroups, setGenNumGroups] = useState<number>(2);
+  const [editingManualMatchId, setEditingManualMatchId] = useState<string | null>(null);
+  const [manualMatchForm, setManualMatchForm] = useState({
+    competitorAId: "",
+    competitorAName: "",
+    competitorBId: "",
+    competitorBName: "",
+    winnerId: "",
+    score: ""
+  });
+
+
+  const [players, setPlayers] = useState<Player[]>([]);
 
   // Manual registration state
   const [manualPlayer1, setManualPlayer1] = useState("");
@@ -193,7 +210,7 @@ export function AdminTournamentDetailPage() {
     setIsGeneratingBracketId(categoryId);
     setError(null);
     try {
-      await generatePersistentBracket(categoryId);
+      await generatePersistentBracket(categoryId, genBracketStyle, genNumGroups);
       await loadData();
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível gerar o chaveamento."));
@@ -201,6 +218,25 @@ export function AdminTournamentDetailPage() {
       setIsGeneratingBracketId(null);
     }
   }
+
+  async function handleSaveManualMatch(matchId: string) {
+    setError(null);
+    try {
+      await updateMatchManual(matchId, {
+        competitorAId: manualMatchForm.competitorAId || null,
+        competitorAName: manualMatchForm.competitorAName || null,
+        competitorBId: manualMatchForm.competitorBId || null,
+        competitorBName: manualMatchForm.competitorBName || null,
+        winnerId: manualMatchForm.winnerId || null,
+        score: manualMatchForm.score || null
+      });
+      setEditingManualMatchId(null);
+      await loadData();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Não foi possível salvar as alterações da partida."));
+    }
+  }
+
 
   async function handleSaveMatchWinner(matchId: string) {
     if (!matchWinnerId) return;
@@ -239,12 +275,14 @@ export function AdminTournamentDetailPage() {
     if (!id) return;
     setError(null);
     try {
-      const [detailResult, paymentsResult] = await Promise.all([
+      const [detailResult, paymentsResult, playersResult] = await Promise.all([
         getTournamentDetail(id),
         getTournamentPendingPayments(id),
+        getPlayers(),
       ]);
       setTournament(detailResult);
       setPendingPayments(paymentsResult);
+      setPlayers(playersResult);
       if (detailResult.categories.length > 0) {
         setSelectedCategoryId((prev) => prev || detailResult.categories[0].id);
       }
@@ -812,6 +850,7 @@ export function AdminTournamentDetailPage() {
                         <label className="block text-xs text-slate-400 font-semibold uppercase tracking-wider">Jogador 1</label>
                         <input
                           type="text"
+                          list="db-players"
                           value={manualPlayer1}
                           onChange={(e) => setManualPlayer1(e.target.value)}
                           placeholder="Nome do Jogador 1"
@@ -822,6 +861,7 @@ export function AdminTournamentDetailPage() {
                         <label className="block text-xs text-slate-400 font-semibold uppercase tracking-wider">Jogador 2</label>
                         <input
                           type="text"
+                          list="db-players"
                           value={manualPlayer2}
                           onChange={(e) => setManualPlayer2(e.target.value)}
                           placeholder="Nome do Jogador 2"
@@ -834,6 +874,7 @@ export function AdminTournamentDetailPage() {
                       <label className="block text-xs text-slate-400 font-semibold uppercase tracking-wider">Jogador</label>
                       <input
                         type="text"
+                        list="db-players"
                         value={manualPlayer1}
                         onChange={(e) => setManualPlayer1(e.target.value)}
                         placeholder="Nome do Jogador"
@@ -841,6 +882,11 @@ export function AdminTournamentDetailPage() {
                       />
                     </div>
                   )}
+                  <datalist id="db-players">
+                    {players.map((p: any) => (
+                      <option key={p.id} value={p.name} />
+                    ))}
+                  </datalist>
                   <button
                     type="button"
                     onClick={() => handleAddManualRegistration(category.id, category.format)}
@@ -1143,26 +1189,210 @@ export function AdminTournamentDetailPage() {
 
                 {category.matches && category.matches.length > 0 ? (
                   <div className="space-y-6 max-w-full overflow-x-auto">
-                    <div className="flex justify-between items-center pr-4">
-                      <h5 className="text-sm font-bold text-slate-300">Chaveamento do Torneio (Double Elimination)</h5>
-                      <button
-                        type="button"
-                        onClick={() => handleGeneratePersistentBracket(category.id)}
-                        disabled={isGeneratingBracketId === category.id}
-                        className="rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        🔄 Rechavear
-                      </button>
+                    {/* Rechavear and Options */}
+                    <div className="flex flex-col gap-4 border border-slate-800 bg-slate-900/20 p-4 rounded-xl mb-4">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <h5 className="text-sm font-bold text-slate-300">
+                          Chaveamento da Categoria ({category.bracketStyle === "GROUPS" ? "Fase de Grupos" : "Double Elimination"})
+                        </h5>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={genBracketStyle}
+                            onChange={(e) => setGenBracketStyle(e.target.value)}
+                            className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                          >
+                            <option value="DOUBLE_ELIMINATION">Double Elimination</option>
+                            <option value="GROUPS">Fase de Grupos</option>
+                          </select>
+                          
+                          {genBracketStyle === "GROUPS" && (
+                            <select
+                              value={genNumGroups}
+                              onChange={(e) => setGenNumGroups(Number(e.target.value))}
+                              className="rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                            >
+                              <option value={1}>1 Grupo</option>
+                              <option value={2}>2 Grupos</option>
+                              <option value={3}>3 Grupos</option>
+                              <option value={4}>4 Grupos</option>
+                            </select>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleGeneratePersistentBracket(category.id)}
+                            disabled={isGeneratingBracketId === category.id}
+                            className="rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:opacity-50 flex items-center gap-1.5"
+                          >
+                            {isGeneratingBracketId === category.id ? "Gerando..." : "🔄 Rechavear"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
+
                     {(() => {
+                      let catParticipants: { id: string; name: string }[] = [];
+                      if (category.format === "DUO_FIXED") {
+                        catParticipants = (category.teams || []).filter((t: any) => t.status === "CONFIRMED").map((t: any) => ({ id: t.id, name: `${t.ownerUser?.name || t.ownerName} + ${t.partnerName}` }));
+                      } else if (category.format === "DUO_RANDOM") {
+                        const seen = new Set<string>();
+                        const pairs: { id: string; name: string }[] = [];
+                        (category.matches || []).forEach((m: any) => {
+                          if (m.competitorAId && m.competitorAName && !seen.has(m.competitorAId)) {
+                            seen.add(m.competitorAId);
+                            pairs.push({ id: m.competitorAId, name: m.competitorAName });
+                          }
+                          if (m.competitorBId && m.competitorBName && !seen.has(m.competitorBId)) {
+                            seen.add(m.competitorBId);
+                            pairs.push({ id: m.competitorBId, name: m.competitorBName });
+                          }
+                        });
+                        catParticipants = pairs;
+                      } else {
+                        catParticipants = (category.registrations || []).filter((r: any) => r.status === "CONFIRMED").map((r: any) => ({ id: r.id, name: r.customPlayerName || r.user?.name || r.playerName }));
+                      }
+
                       const renderMatchCard = (match: any) => {
                         const isEditingMatch = editingMatchId === match.id;
+                        const isEditingManualMatch = editingManualMatchId === match.id;
+
+                        if (isEditingManualMatch) {
+                          return (
+                            <div key={match.id} className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm space-y-3">
+                              <div className="text-xs font-bold text-slate-300 border-b border-slate-800 pb-1 mb-2">
+                                EDITAR CONFRONTO MANUAL
+                              </div>
+                              
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Competidor A</label>
+                                <select
+                                  value={manualMatchForm.competitorAId}
+                                  onChange={(e) => {
+                                    const selId = e.target.value;
+                                    const pObj = catParticipants.find((p: any) => p.id === selId);
+                                    setManualMatchForm(prev => ({
+                                      ...prev,
+                                      competitorAId: selId,
+                                      competitorAName: pObj ? pObj.name : ""
+                                    }));
+                                  }}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none mb-1.5"
+                                >
+                                  <option value="">A definir / BYE</option>
+                                  {catParticipants.map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Nome customizado A"
+                                  value={manualMatchForm.competitorAName}
+                                  onChange={(e) => setManualMatchForm(prev => ({ ...prev, competitorAName: e.target.value }))}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Competidor B</label>
+                                <select
+                                  value={manualMatchForm.competitorBId}
+                                  onChange={(e) => {
+                                    const selId = e.target.value;
+                                    const pObj = catParticipants.find((p: any) => p.id === selId);
+                                    setManualMatchForm(prev => ({
+                                      ...prev,
+                                      competitorBId: selId,
+                                      competitorBName: pObj ? pObj.name : ""
+                                    }));
+                                  }}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none mb-1.5"
+                                >
+                                  <option value="">A definir / BYE</option>
+                                  {catParticipants.map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Nome customizado B"
+                                  value={manualMatchForm.competitorBName}
+                                  onChange={(e) => setManualMatchForm(prev => ({ ...prev, competitorBName: e.target.value }))}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Vencedor</label>
+                                <select
+                                  value={manualMatchForm.winnerId}
+                                  onChange={(e) => setManualMatchForm(prev => ({ ...prev, winnerId: e.target.value }))}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                >
+                                  <option value="">Nenhum</option>
+                                  {manualMatchForm.competitorAId && (
+                                    <option value={manualMatchForm.competitorAId}>{manualMatchForm.competitorAName || "Competidor A"}</option>
+                                  )}
+                                  {manualMatchForm.competitorBId && (
+                                    <option value={manualMatchForm.competitorBId}>{manualMatchForm.competitorBName || "Competidor B"}</option>
+                                  )}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1 font-semibold uppercase">Placar</label>
+                                <input
+                                  type="text"
+                                  placeholder="Ex: 21-18"
+                                  value={manualMatchForm.score}
+                                  onChange={(e) => setManualMatchForm(prev => ({ ...prev, score: e.target.value }))}
+                                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-emerald-400 outline-none"
+                                />
+                              </div>
+
+                              <div className="flex gap-2 justify-end pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingManualMatchId(null)}
+                                  className="rounded-lg bg-slate-800 px-3 py-1 text-xs text-slate-300"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveManualMatch(match.id)}
+                                  className="rounded-lg bg-emerald-500 px-3 py-1 text-xs text-slate-950 font-bold"
+                                >
+                                  Salvar
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div key={match.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm hover:border-slate-700 transition">
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-1">
-                                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1.5">
                                   {match.label || "Jogo"}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingManualMatchId(match.id);
+                                      setManualMatchForm({
+                                        competitorAId: match.competitorAId || "",
+                                        competitorAName: match.competitorAName || "",
+                                        competitorBId: match.competitorBId || "",
+                                        competitorBName: match.competitorBName || "",
+                                        winnerId: match.winnerId || "",
+                                        score: match.score || ""
+                                      });
+                                    }}
+                                    className="text-slate-400 hover:text-white transition"
+                                    title="Editar manual"
+                                  >
+                                    ✏️
+                                  </button>
                                 </span>
                                 {match.score && (
                                   <span className="text-[11px] text-slate-400">
@@ -1258,6 +1488,106 @@ export function AdminTournamentDetailPage() {
                           </div>
                         );
                       };
+
+                      const calculateGroupStandings = (groupMatches: any[]) => {
+                        const standings: Record<string, { id: string; name: string; wins: number; played: number }> = {};
+                        groupMatches.forEach((m) => {
+                          if (m.competitorAId && m.competitorAName) {
+                            if (!standings[m.competitorAId]) {
+                              standings[m.competitorAId] = { id: m.competitorAId, name: m.competitorAName, wins: 0, played: 0 };
+                            }
+                            if (m.winnerId) standings[m.competitorAId].played += 1;
+                          }
+                          if (m.competitorBId && m.competitorBName) {
+                            if (!standings[m.competitorBId]) {
+                              standings[m.competitorBId] = { id: m.competitorBId, name: m.competitorBName, wins: 0, played: 0 };
+                            }
+                            if (m.winnerId) standings[m.competitorBId].played += 1;
+                          }
+                          if (m.winnerId && standings[m.winnerId]) {
+                            standings[m.winnerId].wins += 1;
+                          }
+                        });
+                        return Object.values(standings).sort((a, b) => b.wins - a.wins || b.played - a.played);
+                      };
+
+                      if (category.bracketStyle === "GROUPS") {
+                        const groups = Array.from(new Set(category.matches!.map((m) => m.bracketType))).sort();
+                        return (
+                          <div className="space-y-8 mt-6">
+                            {/* Standings Table for each Group */}
+                            <div className="grid gap-6 md:grid-cols-2">
+                              {groups.map((groupName) => {
+                                const groupMatches = category.matches!.filter((m) => m.bracketType === groupName);
+                                const standings = calculateGroupStandings(groupMatches);
+                                const displayGroupName = groupName.replace("_", " ");
+
+                                return (
+                                  <div key={groupName} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg">
+                                    <h6 className="text-sm font-bold text-emerald-400 mb-3 uppercase tracking-wider">{displayGroupName} - Classificação</h6>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                          <tr className="border-b border-slate-800 text-slate-500 font-semibold uppercase tracking-wider">
+                                            <th className="py-2 pr-2">Pos</th>
+                                            <th className="py-2 pr-2">Participante</th>
+                                            <th className="py-2 pr-2 text-center">J</th>
+                                            <th className="py-2 text-center">V</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {standings.map((row, idx) => (
+                                            <tr key={row.id} className="border-b border-slate-900/60 hover:bg-slate-900/10">
+                                              <td className="py-2.5 font-bold text-slate-400 pr-2">{idx + 1}º</td>
+                                              <td className="py-2.5 font-semibold text-white pr-2">{row.name}</td>
+                                              <td className="py-2.5 text-center text-slate-300 pr-2">{row.played}</td>
+                                              <td className="py-2.5 text-center text-emerald-400 font-bold">{row.wins}</td>
+                                            </tr>
+                                          ))}
+                                          {standings.length === 0 && (
+                                            <tr>
+                                              <td colSpan={4} className="py-4 text-center text-slate-500 italic">Sem classificação ainda.</td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Group Matches grouped by round */}
+                            <div className="space-y-6">
+                              {groups.map((groupName) => {
+                                const groupMatches = category.matches!.filter((m) => m.bracketType === groupName);
+                                const displayGroupName = groupName.replace("_", " ");
+                                const rounds = Array.from(new Set(groupMatches.map((m) => m.round))).sort((a: any, b: any) => a - b);
+
+                                return (
+                                  <div key={groupName} className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/10 p-5">
+                                    <h6 className="text-sm font-bold text-slate-300 border-b border-slate-800 pb-2 uppercase tracking-widest">{displayGroupName} - Confrontos</h6>
+                                    
+                                    <div className="space-y-6">
+                                      {rounds.map((rNum: any) => {
+                                        const roundMatches = groupMatches.filter((m) => m.round === rNum);
+                                        return (
+                                          <div key={`r-${rNum}`} className="space-y-2">
+                                            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Rodada {rNum}</div>
+                                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                              {roundMatches.map((match) => renderMatchCard(match))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
 
                       const wMatches = category.matches!.filter(m => m.bracketType === "WINNER");
                       const lMatches = category.matches!.filter(m => m.bracketType === "LOSER");
@@ -1395,7 +1725,7 @@ export function AdminTournamentDetailPage() {
                                   });
                                 })()
                               ) : (
-                                <p className="text-slate-400 text-sm">Nenhuma partida de repescagem.</p>
+                                <p className="text-slate-400 text-sm">Nenhuma partida gerada ainda.</p>
                               )}
                             </div>
                           )}
@@ -1454,13 +1784,44 @@ export function AdminTournamentDetailPage() {
                   </div>
                 ) : (
                   category.status !== "DRAFT" && (
-                    <div className="flex flex-col items-center py-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/20">
-                      <p className="text-xs text-slate-400 mb-3">O chaveamento oficial ainda não foi gerado.</p>
+                    <div className="flex flex-col items-center py-6 px-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/20 max-w-md mx-auto space-y-4">
+                      <p className="text-xs text-slate-400">O chaveamento oficial ainda não foi gerado.</p>
+                      
+                      <div className="w-full space-y-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Tipo de Chaveamento</label>
+                          <select
+                            value={genBracketStyle}
+                            onChange={(e) => setGenBracketStyle(e.target.value)}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
+                          >
+                            <option value="DOUBLE_ELIMINATION">Chave de Dupla Eliminação (Double Elimination)</option>
+                            <option value="GROUPS">Fase de Grupos (Group Phase)</option>
+                          </select>
+                        </div>
+
+                        {genBracketStyle === "GROUPS" && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 mb-1 uppercase tracking-wider">Quantidade de Grupos</label>
+                            <select
+                              value={genNumGroups}
+                              onChange={(e) => setGenNumGroups(Number(e.target.value))}
+                              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
+                            >
+                              <option value={1}>1 Grupo</option>
+                              <option value={2}>2 Grupos</option>
+                              <option value={3}>3 Grupos</option>
+                              <option value={4}>4 Grupos</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleGeneratePersistentBracket(category.id)}
                         disabled={isGeneratingBracketId === category.id || category.occupiedSlots < 2}
-                        className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
+                        className="w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
                       >
                         {isGeneratingBracketId === category.id ? "Gerando..." : "Gerar Chaveamento Oficial"}
                       </button>

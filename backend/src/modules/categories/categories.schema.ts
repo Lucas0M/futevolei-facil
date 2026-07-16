@@ -6,7 +6,7 @@ export const createCategorySchema = z.object({
   format: z.nativeEnum(CategoryFormat),
   entryFee: z.coerce.number().positive("Valor da inscrição deve ser positivo."),
   maxSlots: z.coerce.number().int().positive("Número de vagas deve ser positivo."),
-  registrationDeadline: z.coerce.date({ errorMap: () => ({ message: "Data limite de inscrição inválida." }) }),
+  registrationDeadline: z.coerce.date({ message: "Data limite de inscrição inválida." }),
   reservationTtlMinutes: z.coerce.number().int().positive().default(20),
   refundFullBeforeDays: z.coerce.number().int().nonnegative().optional(),
   refundPartialBeforeDays: z.coerce.number().int().nonnegative().optional(),

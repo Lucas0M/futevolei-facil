@@ -6,7 +6,7 @@ const client_1 = require("@prisma/client");
 exports.createTournamentSchema = zod_1.z.object({
     name: zod_1.z.string().min(3, "Nome deve ter pelo menos 3 caracteres."),
     description: zod_1.z.string().optional(),
-    eventDate: zod_1.z.coerce.date({ errorMap: () => ({ message: "Data do evento inválida." }) }),
+    eventDate: zod_1.z.coerce.date({ message: "Data do evento inválida." }),
     location: zod_1.z.string().min(3, "Local é obrigatório."),
 });
 exports.updateTournamentSchema = zod_1.z.object({

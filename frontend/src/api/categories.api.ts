@@ -75,9 +75,12 @@ export async function deleteCategory(
 
 export async function generatePersistentBracket(
   categoryId: string,
+  bracketStyle?: string,
+  numGroups?: number,
 ): Promise<any> {
   const { data } = await httpClient.post<any>(
     `/categories/${categoryId}/bracket`,
+    { bracketStyle, numGroups },
   );
   return data;
 }
@@ -93,3 +96,22 @@ export async function updateMatchWinner(
   );
   return data;
 }
+
+export async function updateMatchManual(
+  matchId: string,
+  payload: {
+    competitorAId?: string | null;
+    competitorAName?: string | null;
+    competitorBId?: string | null;
+    competitorBName?: string | null;
+    winnerId?: string | null;
+    score?: string | null;
+  },
+): Promise<any> {
+  const { data } = await httpClient.patch<any>(
+    `/categories/matches/${matchId}/manual`,
+    payload,
+  );
+  return data;
+}
+

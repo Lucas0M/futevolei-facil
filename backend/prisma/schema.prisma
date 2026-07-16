@@ -172,6 +172,7 @@ model Category {
   cancellationDeadlineHours Int @default(48)
 
   status EntityStatus @default(DRAFT)
+  bracketStyle String @default("DOUBLE_ELIMINATION") // "DOUBLE_ELIMINATION" or "GROUPS"
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -327,6 +328,7 @@ model DuoRanking {
   playerBName String
   wins        Int      @default(0)
   points      Float    @default(0)
+  isManual    Boolean  @default(false)
   updatedAt   DateTime @updatedAt
 
   @@unique([playerAName, playerBName])
@@ -338,7 +340,24 @@ model IndividualRanking {
   playerName String   @unique
   wins       Int      @default(0)
   points     Float    @default(0)
+  isManual   Boolean  @default(false)
   updatedAt  DateTime @updatedAt
 
   @@map("individual_rankings")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+model Player {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  gender    Gender
+  photoUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("players")
 }

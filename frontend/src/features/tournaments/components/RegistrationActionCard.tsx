@@ -113,7 +113,7 @@ export function RegistrationActionCard({
     setIsSubmitting(true);
 
     try {
-      let body: any = {};
+      const body: any = {};
       if (category.format === "DUO_FIXED") {
         body.partnerName = partnerName;
         if (isAdmin && customOwnerName.trim()) {

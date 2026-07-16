@@ -15,6 +15,6 @@ export async function listUsersHandler(req: Request, res: Response) {
 }
 
 export async function promoteToAdminHandler(req: Request, res: Response) {
-  const user = await usersService.promoteToAdmin(req.params.id);
+  const user = await usersService.promoteToAdmin(req.params.id as string);
   res.status(200).json(user);
 }

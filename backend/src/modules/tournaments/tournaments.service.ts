@@ -205,6 +205,7 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
         registrationDeadline: c.registrationDeadline,
         status: c.status,
         winnerName: c.winnerName,
+        bracketStyle: c.bracketStyle,
         matches: formatMatchupNames(c.matches),
         registrations: requesterRole === "ADMIN" ? c.registrations.map(r => ({
           id: r.id,

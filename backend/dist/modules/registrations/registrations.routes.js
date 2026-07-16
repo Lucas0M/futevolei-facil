@@ -14,6 +14,8 @@ exports.registrationsRoutes.get("/me", authenticate_1.authenticate, (0, asyncHan
 exports.registrationsRoutes.delete("/:id", authenticate_1.authenticate, (0, asyncHandler_1.asyncHandler)(registrations_controller_1.cancelOwnRegistrationHandler));
 // RF13 - admin removes any registration, no deadline restriction
 exports.registrationsRoutes.delete("/:id/admin", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(registrations_controller_1.adminCancelRegistrationHandler));
+// Admin updates registration player name
+exports.registrationsRoutes.patch("/:id/admin", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(registrations_controller_1.adminUpdateRegistrationHandler));
 // RF16 - admin manually confirms payment made outside the platform
 exports.registrationsRoutes.post("/:id/confirm-payment", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(payments_controller_1.confirmRegistrationPaymentHandler));
 // RF15 - player starts a Mercado Pago checkout (Checkout Pro) for their own registration

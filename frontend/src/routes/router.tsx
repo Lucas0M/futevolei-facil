@@ -12,6 +12,7 @@ import { RankingsPage } from "../features/rankings/pages/RankingsPage";
 import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrationsPage";
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
 import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTournamentDetailPage";
+import { ParticipantsPage } from "../features/admin/pages/ParticipantsPage";
 
 export const router = createBrowserRouter([
   {
@@ -39,6 +40,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "admin", element: <DashboardPage /> },
           { path: "admin/torneios/:id", element: <AdminTournamentDetailPage /> },
+          { path: "admin/atletas", element: <ParticipantsPage /> },
         ],
       },
     ],
