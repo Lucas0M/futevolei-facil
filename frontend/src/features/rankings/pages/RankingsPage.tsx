@@ -7,7 +7,7 @@ import {
   deleteDuoRanking,
   deleteIndividualRanking,
   type DuoRankingEntry,
-  type IndividualRankingEntry
+  type IndividualRankingEntry,
 } from "../../../api/rankings.api";
 import { getPlayers, type Player } from "../../../api/players.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
@@ -16,10 +16,14 @@ import { useAuth } from "../../../context/AuthContext";
 
 export function RankingsPage() {
   const [duoRankings, setDuoRankings] = useState<DuoRankingEntry[]>([]);
-  const [individualRankings, setIndividualRankings] = useState<IndividualRankingEntry[]>([]);
+  const [individualRankings, setIndividualRankings] = useState<
+    IndividualRankingEntry[]
+  >([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [activeTab, setActiveTab] = useState<"duo" | "individual">("duo");
-  const [genderFilter, setGenderFilter] = useState<"ALL" | "MALE" | "FEMALE" | "MIXED">("ALL");
+  const [genderFilter, setGenderFilter] = useState<
+    "ALL" | "MALE" | "FEMALE" | "MIXED"
+  >("ALL");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +52,9 @@ export function RankingsPage() {
         setIndividualRankings(indRes);
         setPlayers(playersRes);
       } catch (err) {
-        setError(getApiErrorMessage(err, "Não foi possível carregar os rankings."));
+        setError(
+          getApiErrorMessage(err, "Não foi possível carregar os rankings."),
+        );
       } finally {
         setIsLoading(false);
       }
@@ -67,7 +73,12 @@ export function RankingsPage() {
         if (!formPlayerA.trim() || !formPlayerB.trim()) {
           throw new Error("Preencha o nome dos dois jogadores.");
         }
-        await saveDuoRankingManual(formPlayerA.trim(), formPlayerB.trim(), 0, formPoints);
+        await saveDuoRankingManual(
+          formPlayerA.trim(),
+          formPlayerB.trim(),
+          0,
+          formPoints,
+        );
       } else {
         if (!formPlayerName.trim()) {
           throw new Error("Preencha o nome do jogador.");
@@ -130,7 +141,8 @@ export function RankingsPage() {
             Ranking Geral
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Acompanhe a classificação oficial dos melhores atletas da Arena ARES.
+            Acompanhe a classificação oficial dos melhores atletas da ARES
+            Futevôlei.
           </p>
         </div>
 
@@ -170,13 +182,19 @@ export function RankingsPage() {
       {isAdmin && (
         <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg space-y-4">
           <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider">
-            Lançar Pontuação Manual ({activeTab === "duo" ? "Dupla" : "Individual"})
+            Lançar Pontuação Manual (
+            {activeTab === "duo" ? "Dupla" : "Individual"})
           </h3>
-          <form onSubmit={handleSaveManual} className="grid gap-4 sm:grid-cols-3 items-end">
+          <form
+            onSubmit={handleSaveManual}
+            className="grid gap-4 sm:grid-cols-3 items-end"
+          >
             {activeTab === "duo" ? (
               <>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Atleta A</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">
+                    Atleta A
+                  </label>
                   <select
                     required
                     value={formPlayerA}
@@ -184,13 +202,17 @@ export function RankingsPage() {
                     className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
                   >
                     <option value="">Selecione o atleta A...</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.name}>{p.name}</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Atleta B</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">
+                    Atleta B
+                  </label>
                   <select
                     required
                     value={formPlayerB}
@@ -198,15 +220,19 @@ export function RankingsPage() {
                     className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
                   >
                     <option value="">Selecione o atleta B...</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.name}>{p.name}</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name}
+                      </option>
                     ))}
                   </select>
                 </div>
               </>
             ) : (
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Atleta</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">
+                  Atleta
+                </label>
                 <select
                   required
                   value={formPlayerName}
@@ -214,15 +240,19 @@ export function RankingsPage() {
                   className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
                 >
                   <option value="">Selecione um atleta...</option>
-                  {players.map(p => (
-                    <option key={p.id} value={p.name}>{p.name}</option>
+                  {players.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
             )}
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">Pontos</label>
+              <label className="text-[10px] font-bold text-slate-400 uppercase">
+                Pontos
+              </label>
               <input
                 type="number"
                 step="any"
@@ -253,7 +283,9 @@ export function RankingsPage() {
 
       {isLoading && (
         <div className="py-12 text-center">
-          <p className="text-sm text-slate-400 animate-pulse">Processando pontuações da arena...</p>
+          <p className="text-sm text-slate-400 animate-pulse">
+            Processando pontuações da arena...
+          </p>
         </div>
       )}
 
@@ -323,9 +355,16 @@ export function RankingsPage() {
             <tbody className="divide-y divide-slate-800/60">
               {activeTab === "duo"
                 ? duoRankings
-                    .filter((entry) => genderFilter === "ALL" || entry.duoType === genderFilter)
+                    .filter(
+                      (entry) =>
+                        genderFilter === "ALL" ||
+                        entry.duoType === genderFilter,
+                    )
                     .map((entry, index) => (
-                      <tr key={entry.id} className="hover:bg-white/[0.02] transition duration-150">
+                      <tr
+                        key={entry.id}
+                        className="hover:bg-white/[0.02] transition duration-150"
+                      >
                         <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
                           {renderPositionBadge(index)}
                         </td>
@@ -333,25 +372,46 @@ export function RankingsPage() {
                           <div className="flex items-center gap-3">
                             <div className="flex -space-x-2 overflow-hidden shrink-0">
                               {entry.photoUrlA ? (
-                                <img src={entry.photoUrlA} alt={entry.playerAName} className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                                <img
+                                  src={entry.photoUrlA}
+                                  alt={entry.playerAName}
+                                  className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover"
+                                />
                               ) : (
                                 <div className="inline-block h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center ring-2 ring-slate-950">
-                                  {entry.playerAName.substring(0, 2).toUpperCase()}
+                                  {entry.playerAName
+                                    .substring(0, 2)
+                                    .toUpperCase()}
                                 </div>
                               )}
                               {entry.photoUrlB ? (
-                                <img src={entry.photoUrlB} alt={entry.playerBName} className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover" />
+                                <img
+                                  src={entry.photoUrlB}
+                                  alt={entry.playerBName}
+                                  className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover"
+                                />
                               ) : (
                                 <div className="inline-block h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center ring-2 ring-slate-950">
-                                  {entry.playerBName.substring(0, 2).toUpperCase()}
+                                  {entry.playerBName
+                                    .substring(0, 2)
+                                    .toUpperCase()}
                                 </div>
                               )}
                             </div>
-                            <span>{entry.playerAName} <span className="text-emerald-400 font-medium">+</span> {entry.playerBName}</span>
+                            <span>
+                              {entry.playerAName}{" "}
+                              <span className="text-emerald-400 font-medium">
+                                +
+                              </span>{" "}
+                              {entry.playerBName}
+                            </span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right text-emerald-400 font-bold text-base whitespace-nowrap">
-                          {entry.points.toFixed(1)} <span className="text-[10px] text-slate-500 font-medium">pts</span>
+                          {entry.points.toFixed(1)}{" "}
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            pts
+                          </span>
                         </td>
                         {isAdmin && (
                           <td className="px-6 py-4 text-right whitespace-nowrap">
@@ -361,7 +421,10 @@ export function RankingsPage() {
                                   setFormPlayerA(entry.playerAName);
                                   setFormPlayerB(entry.playerBName);
                                   setFormPoints(entry.points);
-                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                  window.scrollTo({
+                                    top: 0,
+                                    behavior: "smooth",
+                                  });
                                 }}
                                 className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
                                 title="Editar"
@@ -370,7 +433,9 @@ export function RankingsPage() {
                               </button>
                               <button
                                 onClick={async () => {
-                                  if (confirm("Excluir esta dupla do ranking?")) {
+                                  if (
+                                    confirm("Excluir esta dupla do ranking?")
+                                  ) {
                                     try {
                                       await deleteDuoRanking(entry.id);
                                       setDuoRankings(await getDuoRankings());
@@ -390,16 +455,26 @@ export function RankingsPage() {
                       </tr>
                     ))
                 : individualRankings
-                    .filter((entry) => genderFilter === "ALL" || entry.gender === genderFilter)
+                    .filter(
+                      (entry) =>
+                        genderFilter === "ALL" || entry.gender === genderFilter,
+                    )
                     .map((entry, index) => (
-                      <tr key={entry.id} className="hover:bg-white/[0.02] transition duration-150">
+                      <tr
+                        key={entry.id}
+                        className="hover:bg-white/[0.02] transition duration-150"
+                      >
                         <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
                           {renderPositionBadge(index)}
                         </td>
                         <td className="px-6 py-4 font-bold text-white whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             {entry.photoUrl ? (
-                              <img src={entry.photoUrl} alt={entry.playerName} className="h-8 w-8 rounded-full object-cover border border-white/10 shrink-0" />
+                              <img
+                                src={entry.photoUrl}
+                                alt={entry.playerName}
+                                className="h-8 w-8 rounded-full object-cover border border-white/10 shrink-0"
+                              />
                             ) : (
                               <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center shrink-0">
                                 {entry.playerName.substring(0, 2).toUpperCase()}
@@ -409,7 +484,10 @@ export function RankingsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right text-emerald-400 font-bold text-base whitespace-nowrap">
-                          {entry.points.toFixed(1)} <span className="text-[10px] text-slate-500 font-medium">pts</span>
+                          {entry.points.toFixed(1)}{" "}
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            pts
+                          </span>
                         </td>
                         {isAdmin && (
                           <td className="px-6 py-4 text-right whitespace-nowrap">
@@ -418,7 +496,10 @@ export function RankingsPage() {
                                 onClick={() => {
                                   setFormPlayerName(entry.playerName);
                                   setFormPoints(entry.points);
-                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                  window.scrollTo({
+                                    top: 0,
+                                    behavior: "smooth",
+                                  });
                                 }}
                                 className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
                                 title="Editar"
@@ -427,10 +508,16 @@ export function RankingsPage() {
                               </button>
                               <button
                                 onClick={async () => {
-                                  if (confirm("Excluir este participante do ranking?")) {
+                                  if (
+                                    confirm(
+                                      "Excluir este participante do ranking?",
+                                    )
+                                  ) {
                                     try {
                                       await deleteIndividualRanking(entry.id);
-                                      setIndividualRankings(await getIndividualRankings());
+                                      setIndividualRankings(
+                                        await getIndividualRankings(),
+                                      );
                                     } catch {
                                       setError("Erro ao deletar ranking.");
                                     }
@@ -447,10 +534,21 @@ export function RankingsPage() {
                       </tr>
                     ))}
 
-              {((activeTab === "duo" && duoRankings.filter((entry) => genderFilter === "ALL" || entry.duoType === genderFilter).length === 0) ||
-                (activeTab === "individual" && individualRankings.filter((entry) => genderFilter === "ALL" || entry.gender === genderFilter).length === 0)) && (
+              {((activeTab === "duo" &&
+                duoRankings.filter(
+                  (entry) =>
+                    genderFilter === "ALL" || entry.duoType === genderFilter,
+                ).length === 0) ||
+                (activeTab === "individual" &&
+                  individualRankings.filter(
+                    (entry) =>
+                      genderFilter === "ALL" || entry.gender === genderFilter,
+                  ).length === 0)) && (
                 <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="px-6 py-12 text-center text-slate-500">
+                  <td
+                    colSpan={isAdmin ? 4 : 3}
+                    className="px-6 py-12 text-center text-slate-500"
+                  >
                     Nenhuma pontuação registrada neste ranking com este filtro.
                   </td>
                 </tr>

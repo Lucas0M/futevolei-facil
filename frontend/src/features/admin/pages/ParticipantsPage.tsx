@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { getPlayers, createPlayer, updatePlayer, deletePlayer, type Player } from "../../../api/players.api";
+import {
+  getPlayers,
+  createPlayer,
+  updatePlayer,
+  deletePlayer,
+  type Player,
+} from "../../../api/players.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
 import { Users, Plus, Pencil, Trash, Search, X } from "lucide-react";
 
@@ -42,9 +48,18 @@ export function ParticipantsPage() {
     setError(null);
     try {
       if (isEditing && editingId) {
-        await updatePlayer(editingId, formName.trim(), formGender, formPhotoUrl.trim() || null);
+        await updatePlayer(
+          editingId,
+          formName.trim(),
+          formGender,
+          formPhotoUrl.trim() || null,
+        );
       } else {
-        await createPlayer(formName.trim(), formGender, formPhotoUrl.trim() || null);
+        await createPlayer(
+          formName.trim(),
+          formGender,
+          formPhotoUrl.trim() || null,
+        );
       }
       setFormName("");
       setFormGender("MALE");
@@ -95,7 +110,7 @@ export function ParticipantsPage() {
   };
 
   const filteredPlayers = players.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+    p.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -107,7 +122,8 @@ export function ParticipantsPage() {
             Cadastro de Participantes
           </h1>
           <p className="mt-2 text-sm text-slate-400">
-            Cadastre e gerencie os atletas oficiais da Arena ARES para utilizá-los rapidamente nas chaves e rankings.
+            Cadastre e gerencie os atletas oficiais da ARES Futevôlei para
+            utilizá-los rapidamente nas chaves e rankings.
           </p>
         </div>
       </div>
@@ -117,9 +133,14 @@ export function ParticipantsPage() {
         <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider">
           {isEditing ? "Editar Participante" : "Cadastrar Novo Participante"}
         </h3>
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-4 items-end">
+        <form
+          onSubmit={handleSubmit}
+          className="grid gap-4 sm:grid-cols-4 items-end"
+        >
           <div className="space-y-1 sm:col-span-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Nome Completo</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Nome Completo
+            </label>
             <input
               type="text"
               required
@@ -131,10 +152,14 @@ export function ParticipantsPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Sexo</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Sexo
+            </label>
             <select
               value={formGender}
-              onChange={(e) => setFormGender(e.target.value as "MALE" | "FEMALE")}
+              onChange={(e) =>
+                setFormGender(e.target.value as "MALE" | "FEMALE")
+              }
               className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
             >
               <option value="MALE">Masculino</option>
@@ -143,12 +168,18 @@ export function ParticipantsPage() {
           </div>
 
           <div className="space-y-1 sm:col-span-2">
-            <label className="text-[10px] font-bold text-slate-400 uppercase">Foto do Atleta (Link ou Upload)</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase">
+              Foto do Atleta (Link ou Upload)
+            </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 placeholder="Cole o Link (ex: https://...)"
-                value={formPhotoUrl.startsWith("data:") ? "Imagem enviada do PC" : formPhotoUrl}
+                value={
+                  formPhotoUrl.startsWith("data:")
+                    ? "Imagem enviada do PC"
+                    : formPhotoUrl
+                }
                 onChange={(e) => setFormPhotoUrl(e.target.value)}
                 disabled={formPhotoUrl.startsWith("data:")}
                 className="flex-1 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none disabled:opacity-50"
@@ -164,7 +195,9 @@ export function ParticipantsPage() {
                   type="button"
                   className="rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-2 text-xs font-bold text-slate-300 transition w-full"
                 >
-                  {formPhotoUrl.startsWith("data:") ? "Alterar Foto" : "Enviar do PC"}
+                  {formPhotoUrl.startsWith("data:")
+                    ? "Alterar Foto"
+                    : "Enviar do PC"}
                 </button>
               </div>
               {formPhotoUrl && (
@@ -200,7 +233,9 @@ export function ParticipantsPage() {
               disabled={isSaving}
               className="rounded-lg bg-emerald-500 px-5 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50 h-9 flex items-center gap-1.5"
             >
-              {isSaving ? "Salvando..." : (
+              {isSaving ? (
+                "Salvando..."
+              ) : (
                 <>
                   <Plus className="h-4.5 w-4.5" />
                   {isEditing ? "Atualizar" : "Cadastrar"}
@@ -214,7 +249,10 @@ export function ParticipantsPage() {
       {error && (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-400 flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-white">
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-white"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -240,7 +278,9 @@ export function ParticipantsPage() {
 
         {isLoading ? (
           <div className="py-12 text-center">
-            <p className="text-sm text-slate-400 animate-pulse font-medium">Carregando participantes da Arena...</p>
+            <p className="text-sm text-slate-400 animate-pulse font-medium">
+              Carregando participantes da Arena...
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-800 bg-slate-950/45 overflow-hidden">
@@ -257,7 +297,11 @@ export function ParticipantsPage() {
                   <tr key={p.id} className="hover:bg-slate-900/10 transition">
                     <td className="px-6 py-4 font-semibold text-white flex items-center gap-3">
                       {p.photoUrl ? (
-                        <img src={p.photoUrl} alt={p.name} className="h-8 w-8 rounded-full object-cover border border-white/10" />
+                        <img
+                          src={p.photoUrl}
+                          alt={p.name}
+                          className="h-8 w-8 rounded-full object-cover border border-white/10"
+                        />
                       ) : (
                         <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center">
                           {p.name.substring(0, 2).toUpperCase()}
@@ -266,9 +310,13 @@ export function ParticipantsPage() {
                       <span>{p.name}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
-                        p.gender === "MALE" ? "bg-blue-500/10 text-blue-400" : "bg-pink-500/10 text-pink-400"
-                      }`}>
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
+                          p.gender === "MALE"
+                            ? "bg-blue-500/10 text-blue-400"
+                            : "bg-pink-500/10 text-pink-400"
+                        }`}
+                      >
                         {p.gender === "MALE" ? "Masculino" : "Feminino"}
                       </span>
                     </td>
@@ -294,7 +342,10 @@ export function ParticipantsPage() {
                 ))}
                 {filteredPlayers.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-6 py-10 text-center text-slate-500 italic">
+                    <td
+                      colSpan={3}
+                      className="px-6 py-10 text-center text-slate-500 italic"
+                    >
                       Nenhum atleta cadastrado com esse nome.
                     </td>
                   </tr>
