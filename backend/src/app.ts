@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { env } from "./config/env";
 import { errorHandler } from "./shared/middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";
@@ -16,6 +17,7 @@ import { paymentsRoutes } from "./modules/payments/payments.routes";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes";
 import { rankingsRoutes } from "./modules/rankings/rankings.routes";
 import { playersRoutes } from "./modules/players/players.routes";
+import { profileRoutes } from "./modules/profile/profile.routes";
 
 export function createApp() {
   const app = express();
@@ -51,6 +53,8 @@ export function createApp() {
   app.use("/api/admin/dashboard", dashboardRoutes);
   app.use("/api/rankings", rankingsRoutes);
   app.use("/api/players", playersRoutes);
+  app.use("/api/profile", profileRoutes);
+  app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);

@@ -13,6 +13,7 @@ import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrat
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
 import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTournamentDetailPage";
 import { ParticipantsPage } from "../features/admin/pages/ParticipantsPage";
+import { ProfilePage } from "../features/profile/pages/ProfilePage";
 
 export const router = createBrowserRouter([
   {
@@ -31,7 +32,10 @@ export const router = createBrowserRouter([
       // Protected routes - require login (e.g. "minhas inscrições", built later).
       {
         element: <RequireAuth />,
-        children: [{ path: "minhas-inscricoes", element: <MyRegistrationsPage /> }],
+        children: [
+          { path: "minhas-inscricoes", element: <MyRegistrationsPage /> },
+          { path: "profile", element: <ProfilePage /> },
+        ],
       },
 
       // Admin-only routes.
