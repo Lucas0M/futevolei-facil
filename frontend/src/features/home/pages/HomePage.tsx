@@ -16,7 +16,7 @@ export function HomePage() {
       <div className="relative mx-auto flex max-w-7xl flex-col items-center px-6 text-center">
         <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
           <Zap className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
-          Plataforma Arena ARES
+          Plataforma ARES Futevôlei
         </span>
 
         <h1 className="max-w-5xl text-5xl font-black leading-tight tracking-tight text-white md:text-7xl">
