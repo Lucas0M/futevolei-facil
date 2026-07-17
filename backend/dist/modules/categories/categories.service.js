@@ -31,6 +31,18 @@ async function updateCategory(categoryId, input) {
     if (category.status === client_1.EntityStatus.CANCELLED) {
         throw new AppError_1.AppError("Não é possível editar uma categoria cancelada.", 400, "CATEGORY_CANCELLED");
     }
+    // If format is being updated and is different from current
+    if (input.format && input.format !== category.format) {
+        const registrationsCount = await client_2.prisma.registration.count({
+            where: { categoryId, status: { not: "CANCELLED" } },
+        });
+        const teamsCount = await client_2.prisma.team.count({
+            where: { categoryId, status: { not: "CANCELLED" } },
+        });
+        if (registrationsCount > 0 || teamsCount > 0) {
+            throw new AppError_1.AppError("Não é possível alterar o formato de uma categoria que já possui atletas ou duplas inscritas.", 400, "CATEGORY_HAS_REGISTRATIONS");
+        }
+    }
     return client_2.prisma.category.update({ where: { id: categoryId }, data: input });
 }
 async function deleteCategory(categoryId) {

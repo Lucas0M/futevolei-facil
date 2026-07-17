@@ -9,7 +9,7 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "prisma:deploy": "npx prisma migrate deploy",
-    "test": "cross-env NODE_ENV=test vitest run"
+    "test": "cross-env NODE_ENV=test vitest run --exclude dist"
   },
   "description": "- Code, comments, variable/table/route names: **English**. - User-facing text (UI labels, error messages shown to the user, emails): **Portuguese**.",
   "main": "index.js",

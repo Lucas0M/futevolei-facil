@@ -21,8 +21,19 @@ const rankings_routes_1 = require("./modules/rankings/rankings.routes");
 const players_routes_1 = require("./modules/players/players.routes");
 function createApp() {
     const app = (0, express_1.default)();
-    app.use((0, cors_1.default)({ origin: env_1.env.FRONTEND_URL, credentials: true }));
-    app.use(express_1.default.json());
+    const allowedOrigins = [env_1.env.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"];
+    app.use((0, cors_1.default)({
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin) || env_1.env.NODE_ENV === "development") {
+                callback(null, true);
+            }
+            else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
+        credentials: true,
+    }));
+    app.use(express_1.default.json({ limit: "10mb" }));
     app.get("/health", (_req, res) => {
         res.json({ status: "ok" });
     });

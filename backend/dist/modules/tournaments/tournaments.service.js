@@ -185,7 +185,7 @@ async function getTournamentDetail(tournamentId, requesterRole) {
                 winnerName: c.winnerName,
                 bracketStyle: c.bracketStyle,
                 matches: (0, categories_service_1.formatMatchupNames)(c.matches),
-                registrations: requesterRole === "ADMIN" ? c.registrations.map(r => ({
+                registrations: requesterRole === "ADMIN" ? c.registrations.filter(r => r.status !== "CANCELLED" && r.status !== "EXPIRED").map(r => ({
                     id: r.id,
                     playerName: r.customPlayerName ?? r.user.name,
                     email: r.user.email,
@@ -193,7 +193,7 @@ async function getTournamentDetail(tournamentId, requesterRole) {
                     amountDue: r.amountDue,
                     createdAt: r.createdAt,
                 })) : [],
-                teams: requesterRole === "ADMIN" ? c.teams.map(t => ({
+                teams: requesterRole === "ADMIN" ? c.teams.filter(t => t.status !== "CANCELLED" && t.status !== "EXPIRED").map(t => ({
                     id: t.id,
                     ownerName: t.customOwnerName ?? t.ownerUser.name,
                     partnerName: t.partnerName,

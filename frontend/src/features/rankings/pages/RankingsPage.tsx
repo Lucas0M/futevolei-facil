@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import {
   getDuoRankings,
   getIndividualRankings,
+  getFeminineRankings,
   saveDuoRankingManual,
   saveIndividualRankingManual,
+  saveFeminineRankingManual,
   deleteDuoRanking,
   deleteIndividualRanking,
+  deleteFeminineRanking,
   type DuoRankingEntry,
   type IndividualRankingEntry,
 } from "../../../api/rankings.api";
@@ -17,6 +20,9 @@ import { useAuth } from "../../../context/AuthContext";
 export function RankingsPage() {
   const [duoRankings, setDuoRankings] = useState<DuoRankingEntry[]>([]);
   const [individualRankings, setIndividualRankings] = useState<
+    IndividualRankingEntry[]
+  >([]);
+  const [feminineRankings, setFeminineRankings] = useState<
     IndividualRankingEntry[]
   >([]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -44,13 +50,15 @@ export function RankingsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const [duoRes, indRes, playersRes] = await Promise.all([
+        const [duoRes, indRes, femRes, playersRes] = await Promise.all([
           getDuoRankings(),
           getIndividualRankings(),
+          getFeminineRankings(),
           getPlayers(),
         ]);
         setDuoRankings(duoRes);
         setIndividualRankings(indRes);
+        setFeminineRankings(femRes);
         setPlayers(playersRes);
       } catch (err) {
         setError(
@@ -81,6 +89,11 @@ export function RankingsPage() {
           0,
           formPoints,
         );
+      } else if (activeTab === "feminine") {
+        if (!formPlayerName.trim()) {
+          throw new Error("Preencha o nome da jogadora.");
+        }
+        await saveFeminineRankingManual(formPlayerName.trim(), 0, formPoints);
       } else {
         if (!formPlayerName.trim()) {
           throw new Error("Preencha o nome do jogador.");
@@ -95,12 +108,14 @@ export function RankingsPage() {
       setFormPoints(0);
 
       // Reload rankings
-      const [duoRes, indRes] = await Promise.all([
+      const [duoRes, indRes, femRes] = await Promise.all([
         getDuoRankings(),
         getIndividualRankings(),
+        getFeminineRankings(),
       ]);
       setDuoRankings(duoRes);
       setIndividualRankings(indRes);
+      setFeminineRankings(femRes);
     } catch (err: any) {
       setError(err.message || "Erro ao salvar pontuação manual.");
     } finally {
@@ -142,9 +157,7 @@ export function RankingsPage() {
     ? individualRankings.filter(
         (entry) => genderFilter === "ALL" || entry.gender === genderFilter
       )
-    : individualRankings.filter(
-        (entry) => entry.gender === "FEMALE"
-      );
+    : feminineRankings;
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -188,7 +201,7 @@ export function RankingsPage() {
             }`}
           >
             <User className="h-3.5 w-3.5" />
-            Liga Feminina ({individualRankings.filter(r => r.gender === "FEMALE").length})
+            Liga Feminina ({feminineRankings.length})
           </button>
         </div>
       </div>
@@ -555,10 +568,15 @@ export function RankingsPage() {
                                   )
                                 ) {
                                   try {
-                                    await deleteIndividualRanking(entry.id);
-                                    setIndividualRankings(
-                                      await getIndividualRankings(),
-                                    );
+                                    if (activeTab === "feminine") {
+                                      await deleteFeminineRanking(entry.id);
+                                      setFeminineRankings(await getFeminineRankings());
+                                    } else {
+                                      await deleteIndividualRanking(entry.id);
+                                      setIndividualRankings(
+                                        await getIndividualRankings(),
+                                      );
+                                    }
                                   } catch {
                                     setError("Erro ao deletar ranking.");
                                   }

@@ -60,10 +60,32 @@ export async function saveIndividualRankingManual(
   return data;
 }
 
+export async function getFeminineRankings(): Promise<IndividualRankingEntry[]> {
+  const { data } = await httpClient.get<IndividualRankingEntry[]>("/rankings/feminine");
+  return data;
+}
+
+export async function saveFeminineRankingManual(
+  playerName: string,
+  wins: number,
+  points: number,
+): Promise<any> {
+  const { data } = await httpClient.post<any>("/rankings/feminine/manual", {
+    playerName,
+    wins,
+    points,
+  });
+  return data;
+}
+
 export async function deleteDuoRanking(id: string): Promise<void> {
   await httpClient.delete(`/rankings/duo/${id}`);
 }
 
 export async function deleteIndividualRanking(id: string): Promise<void> {
   await httpClient.delete(`/rankings/individual/${id}`);
+}
+
+export async function deleteFeminineRanking(id: string): Promise<void> {
+  await httpClient.delete(`/rankings/feminine/${id}`);
 }

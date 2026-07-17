@@ -20,6 +20,7 @@ exports.createCategorySchema = zod_1.z.object({
 // break slot-counting logic).
 exports.updateCategorySchema = zod_1.z.object({
     name: zod_1.z.string().min(2).optional(),
+    format: zod_1.z.nativeEnum(client_1.CategoryFormat).optional(),
     entryFee: zod_1.z.coerce.number().positive().optional(),
     maxSlots: zod_1.z.coerce.number().int().positive().optional(),
     registrationDeadline: zod_1.z.coerce.date().optional(),

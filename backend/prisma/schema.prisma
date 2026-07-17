@@ -347,6 +347,17 @@ model IndividualRanking {
   @@map("individual_rankings")
 }
 
+model FeminineRanking {
+  id         String   @id @default(uuid())
+  playerName String   @unique
+  wins       Int      @default(0)
+  points     Float    @default(0)
+  isManual   Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+
+  @@map("feminine_rankings")
+}
+
 enum Gender {
   MALE
   FEMALE
