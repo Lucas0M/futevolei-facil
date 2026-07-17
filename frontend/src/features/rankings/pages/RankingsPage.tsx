@@ -20,7 +20,8 @@ export function RankingsPage() {
     IndividualRankingEntry[]
   >([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [activeTab, setActiveTab] = useState<"duo" | "individual">("duo");
+  const [activeTab, setActiveTab] = useState<"general" | "feminine">("general");
+  const [generalType, setGeneralType] = useState<"duo" | "individual">("duo");
   const [genderFilter, setGenderFilter] = useState<
     "ALL" | "MALE" | "FEMALE" | "MIXED"
   >("ALL");
@@ -69,7 +70,8 @@ export function RankingsPage() {
     setSaveSuccess(false);
 
     try {
-      if (activeTab === "duo") {
+      const isDuo = activeTab === "general" && generalType === "duo";
+      if (isDuo) {
         if (!formPlayerA.trim() || !formPlayerB.trim()) {
           throw new Error("Preencha o nome dos dois jogadores.");
         }
@@ -132,6 +134,18 @@ export function RankingsPage() {
     return <span className="text-slate-400 font-bold pl-2.5">{position}º</span>;
   };
 
+  const activeDuoData = duoRankings.filter(
+    (entry) => genderFilter === "ALL" || entry.duoType === genderFilter
+  );
+
+  const activeIndividualData = activeTab === "general"
+    ? individualRankings.filter(
+        (entry) => genderFilter === "ALL" || entry.gender === genderFilter
+      )
+    : individualRankings.filter(
+        (entry) => entry.gender === "FEMALE"
+      );
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
@@ -150,12 +164,46 @@ export function RankingsPage() {
         <div className="inline-flex rounded-xl bg-slate-900/80 p-1 border border-white/5">
           <button
             onClick={() => {
-              setActiveTab("duo");
+              setActiveTab("general");
               setGenderFilter("ALL");
             }}
             className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
-              activeTab === "duo"
+              activeTab === "general"
                 ? "bg-emerald-500 text-slate-950 font-bold"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <Trophy className="h-3.5 w-3.5" />
+            Ranking Geral
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("feminine");
+              setGenderFilter("ALL");
+            }}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
+              activeTab === "feminine"
+                ? "bg-emerald-500 text-slate-950 font-bold"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <User className="h-3.5 w-3.5" />
+            Liga Feminina ({individualRankings.filter(r => r.gender === "FEMALE").length})
+          </button>
+        </div>
+      </div>
+
+      {/* Sub-toggle for General Tab (Duo vs Individual) */}
+      {activeTab === "general" && (
+        <div className="inline-flex rounded-xl bg-slate-900/40 p-1 border border-white/5">
+          <button
+            onClick={() => {
+              setGeneralType("duo");
+              setGenderFilter("ALL");
+            }}
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+              generalType === "duo"
+                ? "bg-slate-800 text-white font-bold"
                 : "text-slate-400 hover:text-white"
             }`}
           >
@@ -164,12 +212,12 @@ export function RankingsPage() {
           </button>
           <button
             onClick={() => {
-              setActiveTab("individual");
+              setGeneralType("individual");
               setGenderFilter("ALL");
             }}
-            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition ${
-              activeTab === "individual"
-                ? "bg-emerald-500 text-slate-950 font-bold"
+            className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+              generalType === "individual"
+                ? "bg-slate-800 text-white font-bold"
                 : "text-slate-400 hover:text-white"
             }`}
           >
@@ -177,19 +225,19 @@ export function RankingsPage() {
             Individual ({individualRankings.length})
           </button>
         </div>
-      </div>
+      )}
 
       {isAdmin && (
         <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 shadow-lg space-y-4">
           <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider">
             Lançar Pontuação Manual (
-            {activeTab === "duo" ? "Dupla" : "Individual"})
+            {activeTab === "general" && generalType === "duo" ? "Dupla" : "Individual / Liga Feminina"})
           </h3>
           <form
             onSubmit={handleSaveManual}
             className="grid gap-4 sm:grid-cols-3 items-end"
           >
-            {activeTab === "duo" ? (
+            {activeTab === "general" && generalType === "duo" ? (
               <>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">
@@ -231,7 +279,7 @@ export function RankingsPage() {
             ) : (
               <div className="space-y-1 sm:col-span-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase">
-                  Atleta
+                  Atleta {activeTab === "feminine" ? "(Liga Feminina)" : "(Individual)"}
                 </label>
                 <select
                   required
@@ -239,12 +287,14 @@ export function RankingsPage() {
                   onChange={(e) => setFormPlayerName(e.target.value)}
                   className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white focus:border-emerald-400 outline-none"
                 >
-                  <option value="">Selecione um atleta...</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
+                  <option value="">Selecione uma atleta...</option>
+                  {players
+                    .filter((p) => activeTab !== "feminine" || p.gender === "FEMALE")
+                    .map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name}
+                      </option>
+                    ))}
                 </select>
               </div>
             )}
@@ -295,51 +345,53 @@ export function RankingsPage() {
         </div>
       )}
 
-      {/* Gender Filters */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setGenderFilter("ALL")}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
-            genderFilter === "ALL"
-              ? "bg-slate-800 text-white border-slate-700"
-              : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
-          }`}
-        >
-          Todos
-        </button>
-        <button
-          onClick={() => setGenderFilter("MALE")}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
-            genderFilter === "MALE"
-              ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
-              : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
-          }`}
-        >
-          Masculino
-        </button>
-        <button
-          onClick={() => setGenderFilter("FEMALE")}
-          className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
-            genderFilter === "FEMALE"
-              ? "bg-pink-500/20 text-pink-400 border-pink-500/30"
-              : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
-          }`}
-        >
-          Feminino
-        </button>
-        {activeTab === "duo" && (
+      {/* Gender Filters (Only visible on general tab) */}
+      {activeTab === "general" && (
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setGenderFilter("MIXED")}
+            onClick={() => setGenderFilter("ALL")}
             className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
-              genderFilter === "MIXED"
-                ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+              genderFilter === "ALL"
+                ? "bg-slate-800 text-white border-slate-700"
                 : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
             }`}
           >
-            Misto
+            Todos
           </button>
-        )}
-      </div>
+          <button
+            onClick={() => setGenderFilter("MALE")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
+              genderFilter === "MALE"
+                ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
+            }`}
+          >
+            Masculino
+          </button>
+          <button
+            onClick={() => setGenderFilter("FEMALE")}
+            className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
+              genderFilter === "FEMALE"
+                ? "bg-pink-500/20 text-pink-400 border-pink-500/30"
+                : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
+            }`}
+          >
+            Feminino
+          </button>
+          {generalType === "duo" && (
+            <button
+              onClick={() => setGenderFilter("MIXED")}
+              className={`rounded-lg px-4 py-1.5 text-xs font-bold transition duration-200 border ${
+                genderFilter === "MIXED"
+                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
+                  : "text-slate-400 hover:text-white bg-slate-950/20 border-slate-900"
+              }`}
+            >
+              Misto
+            </button>
+          )}
+        </div>
+      )}
 
       {!isLoading && !error && (
         <div className="rounded-2xl border border-slate-800 bg-slate-950/40 overflow-x-auto">
@@ -353,197 +405,179 @@ export function RankingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {activeTab === "duo"
-                ? duoRankings
-                    .filter(
-                      (entry) =>
-                        genderFilter === "ALL" ||
-                        entry.duoType === genderFilter,
-                    )
-                    .map((entry, index) => (
-                      <tr
-                        key={entry.id}
-                        className="hover:bg-white/[0.02] transition duration-150"
-                      >
-                        <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
-                          {renderPositionBadge(index)}
-                        </td>
-                        <td className="px-6 py-4 font-bold text-white whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            <div className="flex -space-x-2 overflow-hidden shrink-0">
-                              {entry.photoUrlA ? (
-                                <img
-                                  src={entry.photoUrlA}
-                                  alt={entry.playerAName}
-                                  className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover"
-                                />
-                              ) : (
-                                <div className="inline-block h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center ring-2 ring-slate-950">
-                                  {entry.playerAName
-                                    .substring(0, 2)
-                                    .toUpperCase()}
-                                </div>
-                              )}
-                              {entry.photoUrlB ? (
-                                <img
-                                  src={entry.photoUrlB}
-                                  alt={entry.playerBName}
-                                  className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover"
-                                />
-                              ) : (
-                                <div className="inline-block h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center ring-2 ring-slate-950">
-                                  {entry.playerBName
-                                    .substring(0, 2)
-                                    .toUpperCase()}
-                                </div>
-                              )}
-                            </div>
-                            <span>
-                              {entry.playerAName}{" "}
-                              <span className="text-emerald-400 font-medium">
-                                +
-                              </span>{" "}
-                              {entry.playerBName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right text-emerald-400 font-bold text-base whitespace-nowrap">
-                          {entry.points.toFixed(1)}{" "}
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            pts
-                          </span>
-                        </td>
-                        {isAdmin && (
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
-                            <div className="flex justify-end gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setFormPlayerA(entry.playerAName);
-                                  setFormPlayerB(entry.playerBName);
-                                  setFormPoints(entry.points);
-                                  window.scrollTo({
-                                    top: 0,
-                                    behavior: "smooth",
-                                  });
-                                }}
-                                className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
-                                title="Editar"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (
-                                    confirm("Excluir esta dupla do ranking?")
-                                  ) {
-                                    try {
-                                      await deleteDuoRanking(entry.id);
-                                      setDuoRankings(await getDuoRankings());
-                                    } catch {
-                                      setError("Erro ao deletar ranking.");
-                                    }
-                                  }
-                                }}
-                                className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition"
-                                title="Excluir"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                : individualRankings
-                    .filter(
-                      (entry) =>
-                        genderFilter === "ALL" || entry.gender === genderFilter,
-                    )
-                    .map((entry, index) => (
-                      <tr
-                        key={entry.id}
-                        className="hover:bg-white/[0.02] transition duration-150"
-                      >
-                        <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
-                          {renderPositionBadge(index)}
-                        </td>
-                        <td className="px-6 py-4 font-bold text-white whitespace-nowrap">
-                          <div className="flex items-center gap-3">
-                            {entry.photoUrl ? (
+              {activeTab === "general" && generalType === "duo"
+                ? activeDuoData.map((entry, index) => (
+                    <tr
+                      key={entry.id}
+                      className="hover:bg-white/[0.02] transition duration-150"
+                    >
+                      <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
+                        {renderPositionBadge(index)}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-white whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="flex -space-x-2 overflow-hidden shrink-0">
+                            {entry.photoUrlA ? (
                               <img
-                                src={entry.photoUrl}
-                                alt={entry.playerName}
-                                className="h-8 w-8 rounded-full object-cover border border-white/10 shrink-0"
+                                src={entry.photoUrlA}
+                                alt={entry.playerAName}
+                                className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover"
                               />
                             ) : (
-                              <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center shrink-0">
-                                {entry.playerName.substring(0, 2).toUpperCase()}
+                              <div className="inline-block h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center ring-2 ring-slate-950">
+                                {entry.playerAName
+                                  .substring(0, 2)
+                                  .toUpperCase()}
                               </div>
                             )}
-                            <span>{entry.playerName}</span>
+                            {entry.photoUrlB ? (
+                              <img
+                                src={entry.photoUrlB}
+                                alt={entry.playerBName}
+                                className="inline-block h-8 w-8 rounded-full ring-2 ring-slate-950 object-cover"
+                              />
+                            ) : (
+                              <div className="inline-block h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-[10px] flex items-center justify-center ring-2 ring-slate-950">
+                                {entry.playerBName
+                                  .substring(0, 2)
+                                  .toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <span>
+                            {entry.playerAName}{" "}
+                            <span className="text-emerald-400 font-medium">
+                              +
+                            </span>{" "}
+                            {entry.playerBName}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-emerald-400 font-bold text-base whitespace-nowrap">
+                        {entry.points.toFixed(1)}{" "}
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          pts
+                        </span>
+                      </td>
+                      {isAdmin && (
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setFormPlayerA(entry.playerAName);
+                                setFormPlayerB(entry.playerBName);
+                                setFormPoints(entry.points);
+                                window.scrollTo({
+                                  top: 0,
+                                  behavior: "smooth",
+                                });
+                              }}
+                              className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (
+                                  confirm("Excluir esta dupla do ranking?")
+                                ) {
+                                  try {
+                                    await deleteDuoRanking(entry.id);
+                                    setDuoRankings(await getDuoRankings());
+                                  } catch {
+                                    setError("Erro ao deletar ranking.");
+                                  }
+                                }
+                              }}
+                              className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition"
+                              title="Excluir"
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right text-emerald-400 font-bold text-base whitespace-nowrap">
-                          {entry.points.toFixed(1)}{" "}
-                          <span className="text-[10px] text-slate-500 font-medium">
-                            pts
-                          </span>
-                        </td>
-                        {isAdmin && (
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
-                            <div className="flex justify-end gap-1.5">
-                              <button
-                                onClick={() => {
-                                  setFormPlayerName(entry.playerName);
-                                  setFormPoints(entry.points);
-                                  window.scrollTo({
-                                    top: 0,
-                                    behavior: "smooth",
-                                  });
-                                }}
-                                className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
-                                title="Editar"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (
-                                    confirm(
-                                      "Excluir este participante do ranking?",
-                                    )
-                                  ) {
-                                    try {
-                                      await deleteIndividualRanking(entry.id);
-                                      setIndividualRankings(
-                                        await getIndividualRankings(),
-                                      );
-                                    } catch {
-                                      setError("Erro ao deletar ranking.");
-                                    }
-                                  }
-                                }}
-                                className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition"
-                                title="Excluir"
-                              >
-                                🗑️
-                              </button>
+                      )}
+                    </tr>
+                  ))
+                : activeIndividualData.map((entry, index) => (
+                    <tr
+                      key={entry.id}
+                      className="hover:bg-white/[0.02] transition duration-150"
+                    >
+                      <td className="px-6 py-4 font-semibold text-white whitespace-nowrap">
+                        {renderPositionBadge(index)}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-white whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          {entry.photoUrl ? (
+                            <img
+                              src={entry.photoUrl}
+                              alt={entry.playerName}
+                              className="h-8 w-8 rounded-full object-cover border border-white/10 shrink-0"
+                            />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center shrink-0">
+                              {entry.playerName.substring(0, 2).toUpperCase()}
                             </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
+                          )}
+                          <span>{entry.playerName}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-emerald-400 font-bold text-base whitespace-nowrap">
+                        {entry.points.toFixed(1)}{" "}
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          pts
+                        </span>
+                      </td>
+                      {isAdmin && (
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <div className="flex justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setFormPlayerName(entry.playerName);
+                                setFormPoints(entry.points);
+                                window.scrollTo({
+                                  top: 0,
+                                  behavior: "smooth",
+                                });
+                              }}
+                              className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (
+                                  confirm(
+                                    "Excluir este participante do ranking?",
+                                  )
+                                ) {
+                                  try {
+                                    await deleteIndividualRanking(entry.id);
+                                    setIndividualRankings(
+                                      await getIndividualRankings(),
+                                    );
+                                  } catch {
+                                    setError("Erro ao deletar ranking.");
+                                  }
+                                }
+                              }}
+                              className="rounded bg-slate-800 p-1 text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition"
+                              title="Excluir"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
 
-              {((activeTab === "duo" &&
-                duoRankings.filter(
-                  (entry) =>
-                    genderFilter === "ALL" || entry.duoType === genderFilter,
-                ).length === 0) ||
-                (activeTab === "individual" &&
-                  individualRankings.filter(
-                    (entry) =>
-                      genderFilter === "ALL" || entry.gender === genderFilter,
-                  ).length === 0)) && (
+              {((activeTab === "general" && generalType === "duo" && activeDuoData.length === 0) ||
+                (activeTab === "general" && generalType === "individual" && activeIndividualData.length === 0) ||
+                (activeTab === "feminine" && activeIndividualData.length === 0)) && (
                 <tr>
                   <td
                     colSpan={isAdmin ? 4 : 3}
