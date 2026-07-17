@@ -207,7 +207,7 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
         winnerName: c.winnerName,
         bracketStyle: c.bracketStyle,
         matches: formatMatchupNames(c.matches),
-        registrations: requesterRole === "ADMIN" ? c.registrations.map(r => ({
+        registrations: requesterRole === "ADMIN" ? c.registrations.filter(r => r.status !== "CANCELLED" && r.status !== "EXPIRED").map(r => ({
           id: r.id,
           playerName: r.customPlayerName ?? r.user.name,
           email: r.user.email,
@@ -215,7 +215,7 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
           amountDue: r.amountDue,
           createdAt: r.createdAt,
         })) : [],
-        teams: requesterRole === "ADMIN" ? c.teams.map(t => ({
+        teams: requesterRole === "ADMIN" ? c.teams.filter(t => t.status !== "CANCELLED" && t.status !== "EXPIRED").map(t => ({
           id: t.id,
           ownerName: t.customOwnerName ?? t.ownerUser.name,
           partnerName: t.partnerName,

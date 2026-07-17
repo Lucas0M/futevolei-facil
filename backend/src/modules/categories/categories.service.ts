@@ -38,6 +38,24 @@ export async function updateCategory(
     );
   }
 
+  // If format is being updated and is different from current
+  if (input.format && input.format !== category.format) {
+    const registrationsCount = await prisma.registration.count({
+      where: { categoryId, status: { not: "CANCELLED" } },
+    });
+    const teamsCount = await prisma.team.count({
+      where: { categoryId, status: { not: "CANCELLED" } },
+    });
+
+    if (registrationsCount > 0 || teamsCount > 0) {
+      throw new AppError(
+        "Não é possível alterar o formato de uma categoria que já possui atletas ou duplas inscritas.",
+        400,
+        "CATEGORY_HAS_REGISTRATIONS",
+      );
+    }
+  }
+
   return prisma.category.update({ where: { id: categoryId }, data: input });
 }
 

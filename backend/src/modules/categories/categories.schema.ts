@@ -20,6 +20,7 @@ export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 // break slot-counting logic).
 export const updateCategorySchema = z.object({
   name: z.string().min(2).optional(),
+  format: z.nativeEnum(CategoryFormat).optional(),
   entryFee: z.coerce.number().positive().optional(),
   maxSlots: z.coerce.number().int().positive().optional(),
   registrationDeadline: z.coerce.date().optional(),

@@ -84,10 +84,10 @@ export function TournamentDetailPage() {
         ← Voltar para torneios
       </Link>
 
-      <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/70 p-8 backdrop-blur">
+      <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 backdrop-blur">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-4xl font-black text-white">
+            <h1 className="text-3xl md:text-4xl font-black text-white">
               {tournament.name}
             </h1>
 
@@ -224,11 +224,11 @@ function CategoryBlock({
   }
 
   return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
+    <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h3 className="text-2xl font-bold text-white">{category.name}</h3>
-          <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-300">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-300">
             <span>Formato: {category.format}</span>
             <span>Valor: R$ {category.entryFee}</span>
             <span>
@@ -360,7 +360,7 @@ function CategoryBlock({
             return (
               <div className="space-y-6 mt-4 z-10 relative">
                 {/* Tab Navigation */}
-                <div className="flex gap-2 bg-slate-950/60 p-1.5 rounded-xl border border-slate-800 w-fit">
+                <div className="flex gap-2 bg-slate-950/60 p-1.5 rounded-xl border border-slate-800 w-fit max-w-full overflow-x-auto whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => setActiveTab("WINNER")}

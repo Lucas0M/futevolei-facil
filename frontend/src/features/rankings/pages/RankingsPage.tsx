@@ -342,7 +342,7 @@ export function RankingsPage() {
       </div>
 
       {!isLoading && !error && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 overflow-hidden">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 overflow-x-auto">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="border-b border-slate-800 bg-slate-900/40 text-xs font-semibold uppercase tracking-wider text-slate-400">
               <tr>

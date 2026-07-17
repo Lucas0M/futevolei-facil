@@ -2,7 +2,7 @@ import axios from "axios";
 import type { ApiErrorResponse } from "../types/api.types";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ?? "https://ares-app-zmua.onrender.com";
+  import.meta.env.VITE_API_URL ?? "http://localhost:3333";
 
 export const httpClient = axios.create({
   baseURL: `${API_URL}/api`,
