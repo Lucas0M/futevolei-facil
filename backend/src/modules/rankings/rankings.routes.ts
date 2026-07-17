@@ -2,10 +2,11 @@ import { Router } from "express";
 import { prisma } from "../../prisma/client";
 import { authenticate } from "../../shared/middlewares/authenticate";
 import { authorize } from "../../shared/middlewares/authorize";
+import { asyncHandler } from "../../shared/utils/asyncHandler";
 
 export const rankingsRoutes = Router();
 
-rankingsRoutes.get("/duo", async (_req, res) => {
+rankingsRoutes.get("/duo", asyncHandler(async (_req, res) => {
   const rankings = await prisma.duoRanking.findMany({
     orderBy: [
       { points: "desc" },
@@ -30,9 +31,9 @@ rankingsRoutes.get("/duo", async (_req, res) => {
     };
   });
   res.json(mapped);
-});
+}));
 
-rankingsRoutes.get("/individual", async (_req, res) => {
+rankingsRoutes.get("/individual", asyncHandler(async (_req, res) => {
   const rankings = await prisma.individualRanking.findMany({
     orderBy: [
       { points: "desc" },
@@ -50,9 +51,9 @@ rankingsRoutes.get("/individual", async (_req, res) => {
     };
   });
   res.json(mapped);
-});
+}));
 
-rankingsRoutes.get("/feminine", async (_req, res) => {
+rankingsRoutes.get("/feminine", asyncHandler(async (_req, res) => {
   const rankings = await prisma.feminineRanking.findMany({
     orderBy: [
       { points: "desc" },
@@ -70,9 +71,9 @@ rankingsRoutes.get("/feminine", async (_req, res) => {
     };
   });
   res.json(mapped);
-});
+}));
 
-rankingsRoutes.post("/duo/manual", authenticate, authorize("ADMIN"), async (req, res) => {
+rankingsRoutes.post("/duo/manual", authenticate, authorize("ADMIN"), asyncHandler(async (req, res) => {
   const { playerAName, playerBName, wins, points } = req.body;
   const sorted = [playerAName, playerBName].sort();
   const record = await prisma.duoRanking.upsert({
@@ -96,9 +97,9 @@ rankingsRoutes.post("/duo/manual", authenticate, authorize("ADMIN"), async (req,
     },
   });
   res.json(record);
-});
+}));
 
-rankingsRoutes.post("/individual/manual", authenticate, authorize("ADMIN"), async (req, res) => {
+rankingsRoutes.post("/individual/manual", authenticate, authorize("ADMIN"), asyncHandler(async (req, res) => {
   const { playerName, wins, points } = req.body;
   const record = await prisma.individualRanking.upsert({
     where: { playerName },
@@ -115,9 +116,9 @@ rankingsRoutes.post("/individual/manual", authenticate, authorize("ADMIN"), asyn
     },
   });
   res.json(record);
-});
+}));
 
-rankingsRoutes.post("/feminine/manual", authenticate, authorize("ADMIN"), async (req, res) => {
+rankingsRoutes.post("/feminine/manual", authenticate, authorize("ADMIN"), asyncHandler(async (req, res) => {
   const { playerName, wins, points } = req.body;
   const record = await prisma.feminineRanking.upsert({
     where: { playerName },
@@ -134,22 +135,22 @@ rankingsRoutes.post("/feminine/manual", authenticate, authorize("ADMIN"), async 
     },
   });
   res.json(record);
-});
+}));
 
-rankingsRoutes.delete("/duo/:id", authenticate, authorize("ADMIN"), async (req, res) => {
+rankingsRoutes.delete("/duo/:id", authenticate, authorize("ADMIN"), asyncHandler(async (req, res) => {
   const id = req.params.id as string;
   await prisma.duoRanking.delete({ where: { id } });
   res.status(204).end();
-});
+}));
 
-rankingsRoutes.delete("/individual/:id", authenticate, authorize("ADMIN"), async (req, res) => {
+rankingsRoutes.delete("/individual/:id", authenticate, authorize("ADMIN"), asyncHandler(async (req, res) => {
   const id = req.params.id as string;
   await prisma.individualRanking.delete({ where: { id } });
   res.status(204).end();
-});
+}));
 
-rankingsRoutes.delete("/feminine/:id", authenticate, authorize("ADMIN"), async (req, res) => {
+rankingsRoutes.delete("/feminine/:id", authenticate, authorize("ADMIN"), asyncHandler(async (req, res) => {
   const id = req.params.id as string;
   await prisma.feminineRanking.delete({ where: { id } });
   res.status(204).end();
-});
+}));

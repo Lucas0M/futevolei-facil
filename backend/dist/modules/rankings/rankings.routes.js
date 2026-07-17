@@ -5,8 +5,9 @@ const express_1 = require("express");
 const client_1 = require("../../prisma/client");
 const authenticate_1 = require("../../shared/middlewares/authenticate");
 const authorize_1 = require("../../shared/middlewares/authorize");
+const asyncHandler_1 = require("../../shared/utils/asyncHandler");
 exports.rankingsRoutes = (0, express_1.Router)();
-exports.rankingsRoutes.get("/duo", async (_req, res) => {
+exports.rankingsRoutes.get("/duo", (0, asyncHandler_1.asyncHandler)(async (_req, res) => {
     const rankings = await client_1.prisma.duoRanking.findMany({
         orderBy: [
             { points: "desc" },
@@ -31,8 +32,8 @@ exports.rankingsRoutes.get("/duo", async (_req, res) => {
         };
     });
     res.json(mapped);
-});
-exports.rankingsRoutes.get("/individual", async (_req, res) => {
+}));
+exports.rankingsRoutes.get("/individual", (0, asyncHandler_1.asyncHandler)(async (_req, res) => {
     const rankings = await client_1.prisma.individualRanking.findMany({
         orderBy: [
             { points: "desc" },
@@ -50,8 +51,8 @@ exports.rankingsRoutes.get("/individual", async (_req, res) => {
         };
     });
     res.json(mapped);
-});
-exports.rankingsRoutes.get("/feminine", async (_req, res) => {
+}));
+exports.rankingsRoutes.get("/feminine", (0, asyncHandler_1.asyncHandler)(async (_req, res) => {
     const rankings = await client_1.prisma.feminineRanking.findMany({
         orderBy: [
             { points: "desc" },
@@ -69,8 +70,8 @@ exports.rankingsRoutes.get("/feminine", async (_req, res) => {
         };
     });
     res.json(mapped);
-});
-exports.rankingsRoutes.post("/duo/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), async (req, res) => {
+}));
+exports.rankingsRoutes.post("/duo/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { playerAName, playerBName, wins, points } = req.body;
     const sorted = [playerAName, playerBName].sort();
     const record = await client_1.prisma.duoRanking.upsert({
@@ -94,8 +95,8 @@ exports.rankingsRoutes.post("/duo/manual", authenticate_1.authenticate, (0, auth
         },
     });
     res.json(record);
-});
-exports.rankingsRoutes.post("/individual/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), async (req, res) => {
+}));
+exports.rankingsRoutes.post("/individual/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { playerName, wins, points } = req.body;
     const record = await client_1.prisma.individualRanking.upsert({
         where: { playerName },
@@ -112,8 +113,8 @@ exports.rankingsRoutes.post("/individual/manual", authenticate_1.authenticate, (
         },
     });
     res.json(record);
-});
-exports.rankingsRoutes.post("/feminine/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), async (req, res) => {
+}));
+exports.rankingsRoutes.post("/feminine/manual", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { playerName, wins, points } = req.body;
     const record = await client_1.prisma.feminineRanking.upsert({
         where: { playerName },
@@ -130,20 +131,20 @@ exports.rankingsRoutes.post("/feminine/manual", authenticate_1.authenticate, (0,
         },
     });
     res.json(record);
-});
-exports.rankingsRoutes.delete("/duo/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), async (req, res) => {
+}));
+exports.rankingsRoutes.delete("/duo/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const id = req.params.id;
     await client_1.prisma.duoRanking.delete({ where: { id } });
     res.status(204).end();
-});
-exports.rankingsRoutes.delete("/individual/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), async (req, res) => {
+}));
+exports.rankingsRoutes.delete("/individual/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const id = req.params.id;
     await client_1.prisma.individualRanking.delete({ where: { id } });
     res.status(204).end();
-});
-exports.rankingsRoutes.delete("/feminine/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), async (req, res) => {
+}));
+exports.rankingsRoutes.delete("/feminine/:id", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const id = req.params.id;
     await client_1.prisma.feminineRanking.delete({ where: { id } });
     res.status(204).end();
-});
+}));
 //# sourceMappingURL=rankings.routes.js.map
