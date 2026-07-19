@@ -21,6 +21,7 @@ const rankings_routes_1 = require("./modules/rankings/rankings.routes");
 const players_routes_1 = require("./modules/players/players.routes");
 const requestContext_1 = require("./shared/middlewares/requestContext");
 const audit_routes_1 = require("./modules/audit/audit.routes");
+const profile_routes_1 = require("./modules/profile/profile.routes");
 function createApp() {
     const app = (0, express_1.default)();
     const allowedOrigins = [env_1.env.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"];
@@ -53,6 +54,7 @@ function createApp() {
     app.use("/api/rankings", rankings_routes_1.rankingsRoutes);
     app.use("/api/players", players_routes_1.playersRoutes);
     app.use("/api/admin/audit-logs", audit_routes_1.auditRoutes);
+    app.use("/api/profile", profile_routes_1.profileRoutes);
     // Error handler must always be the LAST middleware registered.
     app.use(errorHandler_1.errorHandler);
     return app;

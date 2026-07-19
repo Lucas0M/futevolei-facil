@@ -19,6 +19,7 @@ import { rankingsRoutes } from "./modules/rankings/rankings.routes";
 import { playersRoutes } from "./modules/players/players.routes";
 import { requestContextMiddleware } from "./shared/middlewares/requestContext";
 import { auditRoutes } from "./modules/audit/audit.routes";
+import { profileRoutes } from "./modules/profile/profile.routes";
 
 
 export function createApp() {
@@ -57,6 +58,7 @@ export function createApp() {
   app.use("/api/rankings", rankingsRoutes);
   app.use("/api/players", playersRoutes);
   app.use("/api/admin/audit-logs", auditRoutes);
+  app.use("/api/profile", profileRoutes);
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);
