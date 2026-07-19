@@ -10,6 +10,7 @@ import {
   getCurrentUserRequest,
   loginRequest,
   registerRequest,
+  logoutRequest,
   type LoginPayload,
   type RegisterPayload,
 } from "../api/auth.api";
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    logoutRequest().catch((err) => console.error("Failed to log out from backend:", err));
     localStorage.removeItem(STORAGE_USER_KEY);
     localStorage.removeItem(STORAGE_TOKEN_KEY);
     setUser(null);

@@ -7,6 +7,12 @@ declare global {
         id: string;
         role: UserRole;
       };
+      context?: {
+        userId?: string;
+        userRole?: UserRole;
+        ip?: string;
+        userAgent?: string;
+      };
     }
   }
 }

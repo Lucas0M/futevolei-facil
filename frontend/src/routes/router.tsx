@@ -13,7 +13,9 @@ import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrat
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
 import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTournamentDetailPage";
 import { ParticipantsPage } from "../features/admin/pages/ParticipantsPage";
-import { ProfilePage } from "../features/profile/pages/ProfilePage";
+import { RequireSuperAdmin } from "../shared/guards/RequireSuperAdmin";
+import { AuditLogPage } from "../features/admin/pages/AuditLogPage";
+
 
 export const router = createBrowserRouter([
   {
@@ -45,6 +47,14 @@ export const router = createBrowserRouter([
           { path: "admin", element: <DashboardPage /> },
           { path: "admin/torneios/:id", element: <AdminTournamentDetailPage /> },
           { path: "admin/atletas", element: <ParticipantsPage /> },
+        ],
+      },
+
+      // Superadmin-only routes.
+      {
+        element: <RequireSuperAdmin />,
+        children: [
+          { path: "admin/logs", element: <AuditLogPage /> },
         ],
       },
     ],

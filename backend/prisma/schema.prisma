@@ -17,6 +17,7 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 enum UserRole {
+  SUPERADMIN
   ADMIN
   PLAYER
 }
@@ -374,3 +375,28 @@ model Player {
 
   @@map("players")
 }
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userName    String?
+  userEmail   String?
+  userRole    String?
+  action      String
+  module      String
+  entity      String
+  entityId    String?
+  description String
+  oldData     Json?
+  newData     Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([module])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+

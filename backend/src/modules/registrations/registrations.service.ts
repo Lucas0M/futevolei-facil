@@ -106,7 +106,7 @@ async function createIndividualRegistration(
           amountDue: category.entryFee, 
           status: RegistrationStatus.PENDING_PAYMENT, 
           reservedUntil,
-          customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
+          customPlayerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customPlayerName : null,
         },
       });
     }
@@ -118,7 +118,7 @@ async function createIndividualRegistration(
         amountDue: category.entryFee,
         status: RegistrationStatus.PENDING_PAYMENT,
         reservedUntil,
-        customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
+        customPlayerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customPlayerName : null,
       },
     });
   });
@@ -208,7 +208,7 @@ async function createTeamRegistration(
           amountDue: category.entryFee,
           status: TeamRegistrationStatus.PENDING_PAYMENT,
           reservedUntil,
-          customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
+          customOwnerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customOwnerName : null,
         },
       });
     }
@@ -221,7 +221,7 @@ async function createTeamRegistration(
         amountDue: category.entryFee,
         status: TeamRegistrationStatus.PENDING_PAYMENT,
         reservedUntil,
-        customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
+        customOwnerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customOwnerName : null,
       },
     });
   });
