@@ -33,6 +33,7 @@ export interface User {
   email: string;
   phone: string | null;
   role: UserRole;
+  avatarUrl?: string | null;
 }
 
 export interface AuthResponse {

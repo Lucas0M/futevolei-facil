@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import path from "path";
 import { env } from "./config/env";
 import { errorHandler } from "./shared/middlewares/errorHandler";
 import { authRoutes } from "./modules/auth/auth.routes";

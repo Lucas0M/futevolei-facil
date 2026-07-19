@@ -13,12 +13,12 @@ export async function createRegistration(categoryId: string, userId: string, use
     throw new AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
   }
 
-  if (userRole !== "ADMIN") {
+  if (userRole !== "ADMIN" && userRole !== "SUPERADMIN") {
     assertCategoryIsOpenForRegistration(category.status, category.registrationDeadline);
   }
 
   let targetUserId = userId;
-  if (userRole === "ADMIN") {
+  if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
     const dummyEmail = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 7)}@ares.com`;
     const dummyUser = await prisma.user.create({
       data: {

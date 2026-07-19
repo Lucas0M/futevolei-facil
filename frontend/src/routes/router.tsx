@@ -34,7 +34,10 @@ export const router = createBrowserRouter([
       // Protected routes - require login (e.g. "minhas inscrições", built later).
       {
         element: <RequireAuth />,
-        children: [{ path: "minhas-inscricoes", element: <MyRegistrationsPage /> }],
+        children: [
+          { path: "minhas-inscricoes", element: <MyRegistrationsPage /> },
+          { path: "profile", element: <ProfilePage /> },
+        ],
       },
 
       // Admin-only routes.

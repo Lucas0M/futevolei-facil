@@ -167,7 +167,7 @@ export async function getCategoryDetail(
   if (!category) {
     throw new AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
   }
-  if (category.status === EntityStatus.DRAFT && requesterRole !== "ADMIN") {
+  if (category.status === EntityStatus.DRAFT && requesterRole !== "ADMIN" && requesterRole !== "SUPERADMIN") {
     throw new AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
   }
 
