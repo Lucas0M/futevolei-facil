@@ -21,5 +21,9 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
   }
 
   req.user = { id: payload.sub, role: payload.role };
+  if (req.context) {
+    req.context.userId = payload.sub;
+    req.context.userRole = payload.role;
+  }
   next();
 }

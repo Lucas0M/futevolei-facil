@@ -11,6 +11,21 @@ export async function registerHandler(req: Request, res: Response) {
 export async function loginHandler(req: Request, res: Response) {
   const input = loginSchema.parse(req.body);
   const result = await authService.login(input);
+
+  // Log successful login
+  const { writeAuditLog } = require("../../shared/utils/auditLogger");
+  await writeAuditLog({
+    userId: result.user.id,
+    userName: result.user.name,
+    userEmail: result.user.email,
+    userRole: result.user.role,
+    action: "LOGIN",
+    module: "Usuários",
+    entity: "User",
+    entityId: result.user.id,
+    description: `Efetuou login no sistema`,
+  });
+
   res.status(200).json(result);
 }
 
@@ -26,3 +41,19 @@ export async function resetPasswordHandler(req: Request, res: Response) {
   await authService.resetPassword(input);
   res.status(200).json({ message: "Senha redefinida com sucesso." });
 }
+
+export async function logoutHandler(req: Request, res: Response) {
+  if (req.user) {
+    const { writeAuditLog } = require("../../shared/utils/auditLogger");
+    await writeAuditLog({
+      userId: req.user.id,
+      action: "LOGOUT",
+      module: "Usuários",
+      entity: "User",
+      entityId: req.user.id,
+      description: "Efetuou logout do sistema",
+    });
+  }
+  res.status(200).json({ message: "Logout efetuado com sucesso." });
+}
+

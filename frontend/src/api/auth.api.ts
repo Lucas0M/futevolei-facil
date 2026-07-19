@@ -38,3 +38,8 @@ export async function getCurrentUserRequest(): Promise<AuthResponse["user"]> {
 export async function forgotPasswordRequest(email: string): Promise<void> {
   await httpClient.post("/auth/forgot-password", { email });
 }
+
+export async function logoutRequest(): Promise<void> {
+  await httpClient.post("/auth/logout");
+}
+

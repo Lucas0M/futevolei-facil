@@ -16,6 +16,9 @@ import { paymentsRoutes } from "./modules/payments/payments.routes";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes";
 import { rankingsRoutes } from "./modules/rankings/rankings.routes";
 import { playersRoutes } from "./modules/players/players.routes";
+import { requestContextMiddleware } from "./shared/middlewares/requestContext";
+import { auditRoutes } from "./modules/audit/audit.routes";
+
 
 export function createApp() {
   const app = express();
@@ -34,6 +37,7 @@ export function createApp() {
     })
   );
   app.use(express.json({ limit: "10mb" }));
+  app.use(requestContextMiddleware);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -51,6 +55,7 @@ export function createApp() {
   app.use("/api/admin/dashboard", dashboardRoutes);
   app.use("/api/rankings", rankingsRoutes);
   app.use("/api/players", playersRoutes);
+  app.use("/api/admin/audit-logs", auditRoutes);
 
   // Error handler must always be the LAST middleware registered.
   app.use(errorHandler);

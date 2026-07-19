@@ -1,4 +1,23 @@
-export type UserRole = "ADMIN" | "PLAYER";
+export type UserRole = "SUPERADMIN" | "ADMIN" | "PLAYER";
+
+export interface AuditLog {
+  id: string;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  userRole: string | null;
+  action: string;
+  module: string;
+  entity: string;
+  entityId: string | null;
+  description: string;
+  oldData: any | null;
+  newData: any | null;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
 
 export type RegistrationStatus =
   | "PENDING_PAYMENT"

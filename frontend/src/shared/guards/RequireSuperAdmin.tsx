@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
-export function RequireAdmin() {
+export function RequireSuperAdmin() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -12,9 +12,7 @@ export function RequireAdmin() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
-    // Not an admin - redirect to the regular tournament list instead of
-    // showing an error page, since this isn't a page they were ever meant to reach.
+  if (user.role !== "SUPERADMIN") {
     return <Navigate to="/torneios" replace />;
   }
 

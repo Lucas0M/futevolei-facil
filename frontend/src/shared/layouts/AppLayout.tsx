@@ -75,7 +75,7 @@ export function AppLayout() {
               </Link>
             )}
 
-            {user?.role === "ADMIN" && (
+            {(user?.role === "ADMIN" || user?.role === "SUPERADMIN") && (
               <>
                 <Link
                   to="/admin"
@@ -92,6 +92,16 @@ export function AppLayout() {
                   Atletas
                 </Link>
               </>
+            )}
+
+            {user?.role === "SUPERADMIN" && (
+              <Link
+                to="/admin/logs"
+                className={`flex items-center gap-1.5 ${linkClass("/admin/logs")}`}
+              >
+                <Shield size={16} className="text-amber-400" />
+                Logs
+              </Link>
             )}
           </nav>
 
@@ -171,7 +181,7 @@ export function AppLayout() {
                 </Link>
               )}
 
-              {user?.role === "ADMIN" && (
+              {(user?.role === "ADMIN" || user?.role === "SUPERADMIN") && (
                 <>
                   <Link
                     to="/admin"
@@ -190,6 +200,17 @@ export function AppLayout() {
                     Atletas
                   </Link>
                 </>
+              )}
+
+              {user?.role === "SUPERADMIN" && (
+                <Link
+                  to="/admin/logs"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={mobileLinkClass("/admin/logs")}
+                >
+                  <Shield size={18} className="mr-2 text-amber-400" />
+                  Logs
+                </Link>
               )}
 
               <div className="mt-4 border-t border-white/5 pt-4">
