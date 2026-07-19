@@ -16,6 +16,12 @@ export function authorize(...allowedRoles: UserRole[]) {
       (userRole === "SUPERADMIN" && allowedRoles.includes("ADMIN"));
 
     if (!hasPermission) {
+      console.log("[Auth DEBUG] Forbidden access attempt:", {
+        userId: req.user.id,
+        userRole,
+        allowedRoles,
+        hasPermission
+      });
       throw new AppError("Você não tem permissão para realizar esta ação.", 403, "FORBIDDEN");
     }
 
