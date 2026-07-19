@@ -99,14 +99,25 @@ export function AppLayout() {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2">
-                  <span className="text-sm text-gray-300">
-                    Olá,&nbsp;
-                    <span className="font-semibold text-white">
-                      {user.name}
-                    </span>
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 hover:bg-white/10 transition-colors"
+                >
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl.startsWith("http") ? user.avatarUrl : `${import.meta.env.VITE_API_URL || ""}${user.avatarUrl}`}
+                      alt={user.name}
+                      className="h-6 w-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-6 w-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center">
+                      {user.name.substring(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-sm font-semibold text-white">
+                    {user.name}
                   </span>
-                </div>
+                </Link>
 
                 <button
                   onClick={handleLogout}
@@ -195,11 +206,27 @@ export function AppLayout() {
               <div className="mt-4 border-t border-white/5 pt-4">
                 {user ? (
                   <div className="flex flex-col gap-3">
-                    <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center">
-                      <span className="text-sm text-gray-300">
-                        Olá, <span className="font-semibold text-white">{user.name}</span>
-                      </span>
-                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:bg-white/10 transition-colors"
+                    >
+                      {user.avatarUrl ? (
+                        <img
+                          src={user.avatarUrl.startsWith("http") ? user.avatarUrl : `${import.meta.env.VITE_API_URL || ""}${user.avatarUrl}`}
+                          alt={user.name}
+                          className="h-8 w-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center">
+                          {user.name.substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="text-left">
+                        <p className="text-xs text-slate-400">Meu Perfil</p>
+                        <p className="text-sm font-semibold text-white">{user.name}</p>
+                      </div>
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-500/10"

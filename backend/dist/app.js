@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createApp = createApp;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 const env_1 = require("./config/env");
 const errorHandler_1 = require("./shared/middlewares/errorHandler");
 const auth_routes_1 = require("./modules/auth/auth.routes");
@@ -19,6 +20,7 @@ const payments_routes_1 = require("./modules/payments/payments.routes");
 const dashboard_routes_1 = require("./modules/dashboard/dashboard.routes");
 const rankings_routes_1 = require("./modules/rankings/rankings.routes");
 const players_routes_1 = require("./modules/players/players.routes");
+const profile_routes_1 = require("./modules/profile/profile.routes");
 function createApp() {
     const app = (0, express_1.default)();
     const allowedOrigins = [env_1.env.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"];
@@ -49,6 +51,8 @@ function createApp() {
     app.use("/api/admin/dashboard", dashboard_routes_1.dashboardRoutes);
     app.use("/api/rankings", rankings_routes_1.rankingsRoutes);
     app.use("/api/players", players_routes_1.playersRoutes);
+    app.use("/api/profile", profile_routes_1.profileRoutes);
+    app.use("/uploads", express_1.default.static(path_1.default.join(__dirname, "../uploads")));
     // Error handler must always be the LAST middleware registered.
     app.use(errorHandler_1.errorHandler);
     return app;
