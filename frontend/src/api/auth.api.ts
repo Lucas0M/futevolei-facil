@@ -43,3 +43,12 @@ export async function logoutRequest(): Promise<void> {
   await httpClient.post("/auth/logout");
 }
 
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
+}
+
+export async function resetPasswordRequest(payload: ResetPasswordPayload): Promise<void> {
+  await httpClient.post("/auth/reset-password", payload);
+}
+

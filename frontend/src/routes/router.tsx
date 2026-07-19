@@ -16,6 +16,8 @@ import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTourname
 import { ParticipantsPage } from "../features/admin/pages/ParticipantsPage";
 import { RequireSuperAdmin } from "../shared/guards/RequireSuperAdmin";
 import { AuditLogPage } from "../features/admin/pages/AuditLogPage";
+import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 
 
 export const router = createBrowserRouter([
@@ -27,6 +29,8 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "login", element: <LoginPage /> },
       { path: "registro", element: <RegisterPage /> },
+      { path: "recuperar-senha", element: <ForgotPasswordPage /> },
+      { path: "redefinir-senha", element: <ResetPasswordPage /> },
       { path: "torneios", element: <TournamentListPage /> },
       { path: "torneios/:id", element: <TournamentDetailPage /> },
       { path: "historico", element: <TournamentHistoryPage /> },
