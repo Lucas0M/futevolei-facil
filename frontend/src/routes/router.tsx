@@ -10,6 +10,7 @@ import { TournamentDetailPage } from "../features/tournaments/pages/TournamentDe
 import { TournamentHistoryPage } from "../features/tournaments/pages/TournamentHistoryPage";
 import { RankingsPage } from "../features/rankings/pages/RankingsPage";
 import { MyRegistrationsPage } from "../features/registrations/pages/MyRegistrationsPage";
+import { ProfilePage } from "../features/profile/pages/ProfilePage";
 import { DashboardPage } from "../features/admin/pages/DashboardPage";
 import { AdminTournamentDetailPage } from "../features/admin/pages/AdminTournamentDetailPage";
 import { ParticipantsPage } from "../features/admin/pages/ParticipantsPage";
