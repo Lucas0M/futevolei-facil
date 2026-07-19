@@ -9,7 +9,16 @@ function authorize(...allowedRoles) {
         if (!req.user) {
             throw new AppError_1.AppError("Você precisa estar autenticado.", 401, "UNAUTHENTICATED");
         }
-        if (!allowedRoles.includes(req.user.role)) {
+        const userRole = req.user.role;
+        const hasPermission = allowedRoles.includes(userRole) ||
+            (userRole === "SUPERADMIN" && allowedRoles.includes("ADMIN"));
+        if (!hasPermission) {
+            console.log("[Auth DEBUG] Forbidden access attempt:", {
+                userId: req.user.id,
+                userRole,
+                allowedRoles,
+                hasPermission
+            });
             throw new AppError_1.AppError("Você não tem permissão para realizar esta ação.", 403, "FORBIDDEN");
         }
         next();

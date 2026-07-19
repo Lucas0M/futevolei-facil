@@ -19,11 +19,11 @@ async function createRegistration(categoryId, userId, userRole, body) {
     if (!category) {
         throw new AppError_1.AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
     }
-    if (userRole !== "ADMIN") {
+    if (userRole !== "ADMIN" && userRole !== "SUPERADMIN") {
         assertCategoryIsOpenForRegistration(category.status, category.registrationDeadline);
     }
     let targetUserId = userId;
-    if (userRole === "ADMIN") {
+    if (userRole === "ADMIN" || userRole === "SUPERADMIN") {
         const dummyEmail = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 7)}@ares.com`;
         const dummyUser = await client_2.prisma.user.create({
             data: {
@@ -93,7 +93,7 @@ async function createIndividualRegistration(category, userId, userRole, input) {
                     amountDue: category.entryFee,
                     status: client_1.RegistrationStatus.PENDING_PAYMENT,
                     reservedUntil,
-                    customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
+                    customPlayerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customPlayerName : null,
                 },
             });
         }
@@ -104,7 +104,7 @@ async function createIndividualRegistration(category, userId, userRole, input) {
                 amountDue: category.entryFee,
                 status: client_1.RegistrationStatus.PENDING_PAYMENT,
                 reservedUntil,
-                customPlayerName: userRole === "ADMIN" ? input.customPlayerName : null,
+                customPlayerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customPlayerName : null,
             },
         });
     });
@@ -176,7 +176,7 @@ async function createTeamRegistration(category, ownerUserId, userRole, input) {
                     amountDue: category.entryFee,
                     status: client_1.TeamRegistrationStatus.PENDING_PAYMENT,
                     reservedUntil,
-                    customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
+                    customOwnerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customOwnerName : null,
                 },
             });
         }
@@ -188,7 +188,7 @@ async function createTeamRegistration(category, ownerUserId, userRole, input) {
                 amountDue: category.entryFee,
                 status: client_1.TeamRegistrationStatus.PENDING_PAYMENT,
                 reservedUntil,
-                customOwnerName: userRole === "ADMIN" ? input.customOwnerName : null,
+                customOwnerName: (userRole === "ADMIN" || userRole === "SUPERADMIN") ? input.customOwnerName : null,
             },
         });
     });

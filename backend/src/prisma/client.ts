@@ -6,82 +6,89 @@ import {
   generateDescription,
 } from "../shared/utils/auditLogger";
 
-const client = new PrismaClient();
+export const prisma = new PrismaClient();
 
-export const prisma = client.$extends({
-  query: {
-    $allModels: {
-      async $allOperations({ model, operation, args, query }) {
-        const writeOperations = ["create", "update", "delete", "upsert", "createMany", "updateMany", "deleteMany"];
-        if (model === "AuditLog" || !writeOperations.includes(operation)) {
-          return query(args);
-        }
+// Use Prisma Middleware instead of Extensions to preserve the standard PrismaClient type,
+// preventing TS2345 type mismatch errors during database transactions.
+(prisma as any).$use(async (params: any, next: any) => {
+  const writeOperations = [
+    "create",
+    "update",
+    "delete",
+    "upsert",
+    "createMany",
+    "updateMany",
+    "deleteMany",
+  ];
 
-        let oldData: any = null;
-        let action = "CREATE";
-        if (["update", "delete", "upsert"].includes(operation)) {
-          action = operation === "delete" ? "DELETE" : "UPDATE";
-          try {
-            if (args.where) {
-              oldData = await (client as any)[model].findUnique({
-                where: args.where,
-              });
-            }
-          } catch (e) {
-            // Ignore error if record fetch fails
-          }
-        } else if (operation === "updateMany" || operation === "deleteMany") {
-          action = operation === "deleteMany" ? "DELETE" : "UPDATE";
-          try {
-            if (args.where) {
-              oldData = await (client as any)[model].findMany({
-                where: args.where,
-                take: 10,
-              });
-            }
-          } catch (e) {
-            // Ignore
-          }
-        }
+  if (!params.model || params.model === "AuditLog" || !writeOperations.includes(params.action)) {
+    return next(params);
+  }
 
-        // Execute query
-        const result = await query(args);
+  const model = params.model;
+  const action = params.action;
+  const args = params.args || {};
 
-        // Capture new data
-        let newData: any = null;
-        let entityId: string | undefined = undefined;
+  let oldData: any = null;
+  let logAction = "CREATE";
 
-        if (operation === "create") {
-          newData = result;
-          entityId = result?.id;
-        } else if (operation === "update" || operation === "upsert") {
-          newData = result;
-          entityId = result?.id;
-        } else if (operation === "delete") {
-          entityId = oldData?.id;
-        } else if (operation === "createMany") {
-          newData = args.data;
-        } else if (operation === "updateMany") {
-          newData = args.data;
-        }
+  if (["update", "delete", "upsert"].includes(action)) {
+    logAction = action === "delete" ? "DELETE" : "UPDATE";
+    try {
+      if (args.where) {
+        oldData = await (prisma as any)[model].findUnique({
+          where: args.where,
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
+  } else if (action === "updateMany" || action === "deleteMany") {
+    logAction = action === "deleteMany" ? "DELETE" : "UPDATE";
+    try {
+      if (args.where) {
+        oldData = await (prisma as any)[model].findMany({
+          where: args.where,
+          take: 10,
+        });
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
 
-        const recordForDesc = newData || oldData;
-        const description = generateDescription(model, action, recordForDesc);
+  const result = await next(params);
 
-        // Trigger log write asynchronously
-        writeAuditLog({
-          action,
-          module: getModuleName(model),
-          entity: model,
-          entityId,
-          description,
-          oldData,
-          newData,
-        }).catch((err) => console.error("Error writing automatic audit log:", err));
+  // Capture new data
+  let newData: any = null;
+  let entityId: string | undefined = undefined;
 
-        return result;
-      },
-    },
-  },
+  if (action === "create") {
+    newData = result;
+    entityId = result?.id;
+  } else if (action === "update" || action === "upsert") {
+    newData = result;
+    entityId = result?.id;
+  } else if (action === "delete") {
+    entityId = oldData?.id;
+  } else if (action === "createMany") {
+    newData = args.data;
+  } else if (action === "updateMany") {
+    newData = args.data;
+  }
+
+  const recordForDesc = newData || oldData;
+  const description = generateDescription(model, logAction, recordForDesc);
+
+  writeAuditLog({
+    action: logAction,
+    module: getModuleName(model),
+    entity: model,
+    entityId,
+    description,
+    oldData,
+    newData,
+  }).catch((err) => console.error("Error writing automatic audit log:", err));
+
+  return result;
 });
-export type ExtendedPrismaClient = typeof prisma;

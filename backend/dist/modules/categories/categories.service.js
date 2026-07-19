@@ -134,7 +134,7 @@ async function getCategoryDetail(categoryId, requesterRole) {
     if (!category) {
         throw new AppError_1.AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
     }
-    if (category.status === client_1.EntityStatus.DRAFT && requesterRole !== "ADMIN") {
+    if (category.status === client_1.EntityStatus.DRAFT && requesterRole !== "ADMIN" && requesterRole !== "SUPERADMIN") {
         throw new AppError_1.AppError("Categoria não encontrada.", 404, "CATEGORY_NOT_FOUND");
     }
     const occupiedSlots = category.format === "DUO_FIXED"

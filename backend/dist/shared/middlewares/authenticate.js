@@ -19,6 +19,10 @@ function authenticate(req, _res, next) {
         throw new AppError_1.AppError("Sessão inválida ou expirada. Faça login novamente.", 401, "INVALID_TOKEN");
     }
     req.user = { id: payload.sub, role: payload.role };
+    if (req.context) {
+        req.context.userId = payload.sub;
+        req.context.userRole = payload.role;
+    }
     next();
 }
 //# sourceMappingURL=authenticate.js.map

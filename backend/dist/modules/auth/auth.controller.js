@@ -37,6 +37,7 @@ exports.registerHandler = registerHandler;
 exports.loginHandler = loginHandler;
 exports.forgotPasswordHandler = forgotPasswordHandler;
 exports.resetPasswordHandler = resetPasswordHandler;
+exports.logoutHandler = logoutHandler;
 const authService = __importStar(require("./auth.service"));
 const auth_schema_1 = require("./auth.schema");
 async function registerHandler(req, res) {
@@ -47,6 +48,19 @@ async function registerHandler(req, res) {
 async function loginHandler(req, res) {
     const input = auth_schema_1.loginSchema.parse(req.body);
     const result = await authService.login(input);
+    // Log successful login
+    const { writeAuditLog } = require("../../shared/utils/auditLogger");
+    await writeAuditLog({
+        userId: result.user.id,
+        userName: result.user.name,
+        userEmail: result.user.email,
+        userRole: result.user.role,
+        action: "LOGIN",
+        module: "Usuários",
+        entity: "User",
+        entityId: result.user.id,
+        description: `Efetuou login no sistema`,
+    });
     res.status(200).json(result);
 }
 async function forgotPasswordHandler(req, res) {
@@ -59,5 +73,19 @@ async function resetPasswordHandler(req, res) {
     const input = auth_schema_1.resetPasswordSchema.parse(req.body);
     await authService.resetPassword(input);
     res.status(200).json({ message: "Senha redefinida com sucesso." });
+}
+async function logoutHandler(req, res) {
+    if (req.user) {
+        const { writeAuditLog } = require("../../shared/utils/auditLogger");
+        await writeAuditLog({
+            userId: req.user.id,
+            action: "LOGOUT",
+            module: "Usuários",
+            entity: "User",
+            entityId: req.user.id,
+            description: "Efetuou logout do sistema",
+        });
+    }
+    res.status(200).json({ message: "Logout efetuado com sucesso." });
 }
 //# sourceMappingURL=auth.controller.js.map
