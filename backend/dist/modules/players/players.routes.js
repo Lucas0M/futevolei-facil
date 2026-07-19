@@ -10,10 +10,44 @@ const AppError_1 = require("../../shared/errors/AppError");
 exports.playersRoutes = (0, express_1.Router)();
 // List all players
 exports.playersRoutes.get("/", (0, asyncHandler_1.asyncHandler)(async (req, res) => {
-    const players = await client_1.prisma.player.findMany({
-        orderBy: { name: "asc" }
-    });
-    res.json(players);
+    const page = req.query.page ? parseInt(req.query.page, 10) : undefined;
+    const pageSize = req.query.pageSize ? parseInt(req.query.pageSize, 10) : 10;
+    const search = req.query.search ? req.query.search.trim() : "";
+    const where = {};
+    if (search) {
+        where.name = {
+            contains: search,
+            mode: "insensitive",
+        };
+    }
+    if (page !== undefined) {
+        const skip = (page - 1) * pageSize;
+        const [players, total] = await client_1.prisma.$transaction([
+            client_1.prisma.player.findMany({
+                where,
+                orderBy: { name: "asc" },
+                skip,
+                take: pageSize,
+            }),
+            client_1.prisma.player.count({ where }),
+        ]);
+        res.json({
+            data: players,
+            meta: {
+                page,
+                pageSize,
+                total,
+                totalPages: Math.ceil(total / pageSize),
+            },
+        });
+    }
+    else {
+        const players = await client_1.prisma.player.findMany({
+            where,
+            orderBy: { name: "asc" }
+        });
+        res.json(players);
+    }
 }));
 // Create player
 exports.playersRoutes.post("/", authenticate_1.authenticate, (0, authorize_1.authorize)("ADMIN"), (0, asyncHandler_1.asyncHandler)(async (req, res) => {

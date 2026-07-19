@@ -11,10 +11,45 @@ export const playersRoutes = Router();
 playersRoutes.get(
   "/",
   asyncHandler(async (req, res) => {
-    const players = await prisma.player.findMany({
-      orderBy: { name: "asc" }
-    });
-    res.json(players);
+    const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+    const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
+    const search = req.query.search ? (req.query.search as string).trim() : "";
+
+    const where: any = {};
+    if (search) {
+      where.name = {
+        contains: search,
+        mode: "insensitive",
+      };
+    }
+
+    if (page !== undefined) {
+      const skip = (page - 1) * pageSize;
+      const [players, total] = await prisma.$transaction([
+        prisma.player.findMany({
+          where,
+          orderBy: { name: "asc" },
+          skip,
+          take: pageSize,
+        }),
+        prisma.player.count({ where }),
+      ]);
+      res.json({
+        data: players,
+        meta: {
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        },
+      });
+    } else {
+      const players = await prisma.player.findMany({
+        where,
+        orderBy: { name: "asc" }
+      });
+      res.json(players);
+    }
   })
 );
 

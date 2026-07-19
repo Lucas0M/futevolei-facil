@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import {
-  getPlayers,
   createPlayer,
   updatePlayer,
   deletePlayer,
+  getPlayersPaginated,
   type Player,
 } from "../../../api/players.api";
 import { getApiErrorMessage } from "../../../api/httpClient";
@@ -12,8 +12,12 @@ import { Users, Plus, Pencil, Trash, Search, X } from "lucide-react";
 export function ParticipantsPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPlayers, setTotalPlayers] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pageSize = 10;
 
   // Form state
   const [isEditing, setIsEditing] = useState(false);
@@ -23,16 +27,28 @@ export function ParticipantsPage() {
   const [formPhotoUrl, setFormPhotoUrl] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     loadPlayers();
-  }, []);
+  }, [page, debouncedSearch]);
 
   async function loadPlayers() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getPlayers();
-      setPlayers(data);
+      const res = await getPlayersPaginated(page, pageSize, debouncedSearch);
+      setPlayers(res.data);
+      setTotalPages(res.meta.totalPages);
+      setTotalPlayers(res.meta.total);
     } catch (err) {
       setError(getApiErrorMessage(err, "Erro ao carregar participantes."));
     } finally {
@@ -109,9 +125,6 @@ export function ParticipantsPage() {
     }
   };
 
-  const filteredPlayers = players.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()),
-  );
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
@@ -262,7 +275,7 @@ export function ParticipantsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            Atletas Cadastrados ({filteredPlayers.length})
+            Atletas Cadastrados ({totalPlayers})
           </h3>
           <div className="relative w-64 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
@@ -283,75 +296,100 @@ export function ParticipantsPage() {
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/45 overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="border-b border-slate-800 bg-slate-900/40 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                <tr>
-                  <th className="px-6 py-3.5">Nome</th>
-                  <th className="px-6 py-3.5">Sexo</th>
-                  <th className="px-6 py-3.5 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/40">
-                {filteredPlayers.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-900/10 transition">
-                    <td className="px-6 py-4 font-semibold text-white flex items-center gap-3">
-                      {p.photoUrl ? (
-                        <img
-                          src={p.photoUrl}
-                          alt={p.name}
-                          className="h-8 w-8 rounded-full object-cover border border-white/10"
-                        />
-                      ) : (
-                        <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center">
-                          {p.name.substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <span>{p.name}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
-                          p.gender === "MALE"
-                            ? "bg-blue-500/10 text-blue-400"
-                            : "bg-pink-500/10 text-pink-400"
-                        }`}
-                      >
-                        {p.gender === "MALE" ? "Masculino" : "Feminino"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(p)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"
-                          title="Excluir"
-                        >
-                          <Trash className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredPlayers.length === 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/45 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead className="border-b border-slate-800 bg-slate-900/40 text-xs font-semibold uppercase tracking-wider text-slate-400">
                   <tr>
-                    <td
-                      colSpan={3}
-                      className="px-6 py-10 text-center text-slate-500 italic"
-                    >
-                      Nenhum atleta cadastrado com esse nome.
-                    </td>
+                    <th className="px-6 py-3.5">Nome</th>
+                    <th className="px-6 py-3.5">Sexo</th>
+                    <th className="px-6 py-3.5 text-right">Ações</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800/40">
+                  {players.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-900/10 transition">
+                      <td className="px-6 py-4 font-semibold text-white flex items-center gap-3">
+                        {p.photoUrl ? (
+                          <img
+                            src={p.photoUrl}
+                            alt={p.name}
+                            className="h-8 w-8 rounded-full object-cover border border-white/10"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs flex items-center justify-center">
+                            {p.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span>{p.name}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
+                            p.gender === "MALE"
+                              ? "bg-blue-500/10 text-blue-400"
+                              : "bg-pink-500/10 text-pink-400"
+                          }`}
+                        >
+                          {p.gender === "MALE" ? "Masculino" : "Feminino"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleEdit(p)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                            title="Editar"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"
+                            title="Excluir"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {players.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={3}
+                        className="px-6 py-10 text-center text-slate-500 italic"
+                      >
+                        Nenhum atleta cadastrado.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Footer */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-6 py-4">
+                <button
+                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                  disabled={page === 1}
+                  className="rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-xs font-bold text-slate-300 transition"
+                >
+                  Anterior
+                </button>
+                <span className="text-xs text-slate-400 font-semibold">
+                  Página {page} de {totalPages} ({totalPlayers} atletas)
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={page === totalPages}
+                  className="rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 text-xs font-bold text-slate-300 transition"
+                >
+                  Próximo
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

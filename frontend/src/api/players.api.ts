@@ -27,3 +27,28 @@ export async function updatePlayer(id: string, name: string, gender: "MALE" | "F
 export async function deletePlayer(id: string): Promise<void> {
   await httpClient.delete(`/players/${id}`);
 }
+
+export interface PaginatedPlayersResponse {
+  data: Player[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export async function getPlayersPaginated(
+  page: number,
+  pageSize: number,
+  search?: string,
+): Promise<PaginatedPlayersResponse> {
+  const params = new URLSearchParams();
+  params.append("page", page.toString());
+  params.append("pageSize", pageSize.toString());
+  if (search) {
+    params.append("search", search);
+  }
+  const { data } = await httpClient.get<PaginatedPlayersResponse>(`/players?${params.toString()}`);
+  return data;
+}
