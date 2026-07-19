@@ -6,7 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getProfile = getProfile;
 exports.updateProfile = updateProfile;
 exports.updatePassword = updatePassword;
-const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const client_1 = require("../../prisma/client");
 const AppError_1 = require("../../shared/errors/AppError");
@@ -17,29 +16,12 @@ function saveAvatar(userId, base64DataUrl) {
     if (!match) {
         throw new AppError_1.AppError("Formato de imagem inválido.", 400);
     }
-    const mimeType = match[1];
     const base64Data = match[2];
     const buffer = Buffer.from(base64Data, "base64");
     if (buffer.length > 5 * 1024 * 1024) {
         throw new AppError_1.AppError("A imagem não deve exceder 5MB.", 400);
     }
-    let extension = "png";
-    if (mimeType === "image/jpeg" || mimeType === "image/jpg") {
-        extension = "jpg";
-    }
-    else if (mimeType === "image/webp") {
-        extension = "webp";
-    }
-    else if (mimeType === "image/gif") {
-        extension = "gif";
-    }
-    if (!fs_1.default.existsSync(UPLOADS_DIR)) {
-        fs_1.default.mkdirSync(UPLOADS_DIR, { recursive: true });
-    }
-    const filename = `${userId}_${Date.now()}.${extension}`;
-    const filepath = path_1.default.join(UPLOADS_DIR, filename);
-    fs_1.default.writeFileSync(filepath, buffer);
-    return `/uploads/avatars/${filename}`;
+    return base64DataUrl;
 }
 async function getProfile(userId) {
     const user = await client_1.prisma.user.findUnique({

@@ -34,7 +34,7 @@ export function ProfilePage() {
         setName(data.name);
         setEmail(data.email);
         if (data.avatarUrl) {
-          const fullUrl = data.avatarUrl.startsWith("http")
+          const fullUrl = data.avatarUrl.startsWith("http") || data.avatarUrl.startsWith("data:")
             ? data.avatarUrl
             : `${import.meta.env.VITE_API_URL || ""}${data.avatarUrl}`;
           setPreviewUrl(fullUrl);
