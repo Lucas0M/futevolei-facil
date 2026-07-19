@@ -87,3 +87,4 @@ const extendedClient = client.$extends({
 
 // Export as any to bypass transaction type checking in services
 export const prisma = extendedClient as any;
+export const rawPrisma = client;

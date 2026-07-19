@@ -4,11 +4,8 @@ exports.maskSensitiveData = maskSensitiveData;
 exports.getModuleName = getModuleName;
 exports.generateDescription = generateDescription;
 exports.writeAuditLog = writeAuditLog;
-const client_1 = require("@prisma/client");
 const requestContext_1 = require("./requestContext");
-// Use a raw Prisma Client to write logs. This prevents circular dependencies
-// and ensures log writes do not trigger the Prisma extension recursively.
-const rawPrisma = new client_1.PrismaClient();
+const client_1 = require("../../prisma/client");
 function maskSensitiveData(data) {
     if (!data)
         return data;
@@ -100,7 +97,7 @@ async function writeAuditLog(payload) {
         let userRole = payload.userRole || context?.userRole || null;
         // Fetch user info from database if authenticated and not provided in payload
         if (userId && (!userName || !userEmail)) {
-            const user = await rawPrisma.user.findUnique({
+            const user = await client_1.rawPrisma.user.findUnique({
                 where: { id: userId },
                 select: { name: true, email: true, role: true },
             });
@@ -110,7 +107,7 @@ async function writeAuditLog(payload) {
                 userRole = user.role;
             }
         }
-        await rawPrisma.auditLog.create({
+        await client_1.rawPrisma.auditLog.create({
             data: {
                 userId,
                 userName,

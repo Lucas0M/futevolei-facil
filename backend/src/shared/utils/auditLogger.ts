@@ -1,9 +1,5 @@
-import { PrismaClient } from "@prisma/client";
 import { requestContextStorage } from "./requestContext";
-
-// Use a raw Prisma Client to write logs. This prevents circular dependencies
-// and ensures log writes do not trigger the Prisma extension recursively.
-const rawPrisma = new PrismaClient();
+import { rawPrisma } from "../../prisma/client";
 
 export function maskSensitiveData(data: any): any {
   if (!data) return data;

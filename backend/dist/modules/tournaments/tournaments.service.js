@@ -101,7 +101,7 @@ async function publishTournament(tournamentId) {
 }
 async function listTournaments({ page, pageSize, status, fromDate, toDate, requesterRole }) {
     const where = {};
-    if (requesterRole !== "ADMIN") {
+    if (requesterRole !== "ADMIN" && requesterRole !== "SUPERADMIN") {
         if (status) {
             if (status === client_1.EntityStatus.DRAFT) {
                 where.status = { in: [] }; // Return empty
@@ -155,10 +155,10 @@ async function getTournamentDetail(tournamentId, requesterRole) {
     if (!tournament) {
         throw new AppError_1.AppError("Torneio não encontrado.", 404, "TOURNAMENT_NOT_FOUND");
     }
-    if (tournament.status === client_1.EntityStatus.DRAFT && requesterRole !== "ADMIN") {
+    if (tournament.status === client_1.EntityStatus.DRAFT && requesterRole !== "ADMIN" && requesterRole !== "SUPERADMIN") {
         throw new AppError_1.AppError("Torneio não encontrado.", 404, "TOURNAMENT_NOT_FOUND");
     }
-    const visibleCategories = requesterRole === "ADMIN"
+    const visibleCategories = (requesterRole === "ADMIN" || requesterRole === "SUPERADMIN")
         ? tournament.categories
         : tournament.categories.filter((c) => c.status !== client_1.EntityStatus.DRAFT);
     return {
@@ -185,7 +185,7 @@ async function getTournamentDetail(tournamentId, requesterRole) {
                 winnerName: c.winnerName,
                 bracketStyle: c.bracketStyle,
                 matches: (0, categories_service_1.formatMatchupNames)(c.matches),
-                registrations: requesterRole === "ADMIN" ? c.registrations.filter(r => r.status !== "CANCELLED" && r.status !== "EXPIRED").map(r => ({
+                registrations: (requesterRole === "ADMIN" || requesterRole === "SUPERADMIN") ? c.registrations.filter(r => r.status !== "CANCELLED" && r.status !== "EXPIRED").map(r => ({
                     id: r.id,
                     playerName: r.customPlayerName ?? r.user.name,
                     email: r.user.email,
@@ -193,7 +193,7 @@ async function getTournamentDetail(tournamentId, requesterRole) {
                     amountDue: r.amountDue,
                     createdAt: r.createdAt,
                 })) : [],
-                teams: requesterRole === "ADMIN" ? c.teams.filter(t => t.status !== "CANCELLED" && t.status !== "EXPIRED").map(t => ({
+                teams: (requesterRole === "ADMIN" || requesterRole === "SUPERADMIN") ? c.teams.filter(t => t.status !== "CANCELLED" && t.status !== "EXPIRED").map(t => ({
                     id: t.id,
                     ownerName: t.customOwnerName ?? t.ownerUser.name,
                     partnerName: t.partnerName,

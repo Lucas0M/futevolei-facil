@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.prisma = void 0;
+exports.rawPrisma = exports.prisma = void 0;
 require("dotenv/config");
 const client_1 = require("@prisma/client");
 const auditLogger_1 = require("../shared/utils/auditLogger");
@@ -83,4 +83,5 @@ const extendedClient = client.$extends({
 });
 // Export as any to bypass transaction type checking in services
 exports.prisma = extendedClient;
+exports.rawPrisma = client;
 //# sourceMappingURL=client.js.map

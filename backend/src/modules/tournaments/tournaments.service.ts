@@ -117,7 +117,7 @@ interface ListTournamentsParams extends ListTournamentsQuery {
 export async function listTournaments({ page, pageSize, status, fromDate, toDate, requesterRole }: ListTournamentsParams) {
   const where: Prisma.TournamentWhereInput = {};
 
-  if (requesterRole !== "ADMIN") {
+  if (requesterRole !== "ADMIN" && requesterRole !== "SUPERADMIN") {
     if (status) {
       if (status === EntityStatus.DRAFT) {
         where.status = { in: [] }; // Return empty
@@ -172,12 +172,12 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
   if (!tournament) {
     throw new AppError("Torneio não encontrado.", 404, "TOURNAMENT_NOT_FOUND");
   }
-  if (tournament.status === EntityStatus.DRAFT && requesterRole !== "ADMIN") {
+  if (tournament.status === EntityStatus.DRAFT && requesterRole !== "ADMIN" && requesterRole !== "SUPERADMIN") {
     throw new AppError("Torneio não encontrado.", 404, "TOURNAMENT_NOT_FOUND");
   }
 
   const visibleCategories =
-    requesterRole === "ADMIN"
+    (requesterRole === "ADMIN" || requesterRole === "SUPERADMIN")
       ? tournament.categories
       : tournament.categories.filter((c) => c.status !== EntityStatus.DRAFT);
 
@@ -207,7 +207,7 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
         winnerName: c.winnerName,
         bracketStyle: c.bracketStyle,
         matches: formatMatchupNames(c.matches),
-        registrations: requesterRole === "ADMIN" ? c.registrations.filter(r => r.status !== "CANCELLED" && r.status !== "EXPIRED").map(r => ({
+        registrations: (requesterRole === "ADMIN" || requesterRole === "SUPERADMIN") ? c.registrations.filter(r => r.status !== "CANCELLED" && r.status !== "EXPIRED").map(r => ({
           id: r.id,
           playerName: r.customPlayerName ?? r.user.name,
           email: r.user.email,
@@ -215,7 +215,7 @@ export async function getTournamentDetail(tournamentId: string, requesterRole: U
           amountDue: r.amountDue,
           createdAt: r.createdAt,
         })) : [],
-        teams: requesterRole === "ADMIN" ? c.teams.filter(t => t.status !== "CANCELLED" && t.status !== "EXPIRED").map(t => ({
+        teams: (requesterRole === "ADMIN" || requesterRole === "SUPERADMIN") ? c.teams.filter(t => t.status !== "CANCELLED" && t.status !== "EXPIRED").map(t => ({
           id: t.id,
           ownerName: t.customOwnerName ?? t.ownerUser.name,
           partnerName: t.partnerName,
