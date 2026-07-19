@@ -268,7 +268,7 @@ export async function generateCategoryBracket(
     );
   }
 
-  const participants =
+  const participants: GeneratedBracketParticipant[] =
     category.format === CategoryFormat.DUO_FIXED
       ? category.teams.map((team) => ({
           id: team.id,

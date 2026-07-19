@@ -14,7 +14,7 @@ rankingsRoutes.get("/duo", asyncHandler(async (_req, res) => {
     ],
   });
   const players = await prisma.player.findMany();
-  const playerMap = new Map(players.map(p => [p.name, { gender: p.gender, photoUrl: p.photoUrl }]));
+  const playerMap = new Map<string, any>(players.map(p => [p.name, { gender: p.gender, photoUrl: p.photoUrl }]));
   const mapped = rankings.map(r => {
     const pA = playerMap.get(r.playerAName);
     const pB = playerMap.get(r.playerBName);
@@ -41,7 +41,7 @@ rankingsRoutes.get("/individual", asyncHandler(async (_req, res) => {
     ],
   });
   const players = await prisma.player.findMany();
-  const playerMap = new Map(players.map(p => [p.name, { gender: p.gender, photoUrl: p.photoUrl }]));
+  const playerMap = new Map<string, any>(players.map(p => [p.name, { gender: p.gender, photoUrl: p.photoUrl }]));
   const mapped = rankings.map(r => {
     const p = playerMap.get(r.playerName);
     return {
@@ -61,7 +61,7 @@ rankingsRoutes.get("/feminine", asyncHandler(async (_req, res) => {
     ],
   });
   const players = await prisma.player.findMany();
-  const playerMap = new Map(players.map(p => [p.name, { gender: p.gender, photoUrl: p.photoUrl }]));
+  const playerMap = new Map<string, any>(players.map(p => [p.name, { gender: p.gender, photoUrl: p.photoUrl }]));
   const mapped = rankings.map(r => {
     const p = playerMap.get(r.playerName);
     return {
