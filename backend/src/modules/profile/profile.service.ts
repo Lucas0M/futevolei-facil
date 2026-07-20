@@ -11,6 +11,7 @@ function saveAvatar(userId: string, base64DataUrl: string): string {
     throw new AppError("Formato de imagem inválido.", 400);
   }
 
+  const mimeType = match[1];
   const base64Data = match[2];
   const buffer = Buffer.from(base64Data, "base64");
 
@@ -18,7 +19,23 @@ function saveAvatar(userId: string, base64DataUrl: string): string {
     throw new AppError("A imagem não deve exceder 5MB.", 400);
   }
 
-  return base64DataUrl;
+  // Determine extension based on mimeType
+  let extension = "jpg";
+  if (mimeType === "image/png") extension = "png";
+  else if (mimeType === "image/gif") extension = "gif";
+  else if (mimeType === "image/webp") extension = "webp";
+
+  const filename = `${userId}_${Date.now()}.${extension}`;
+  const filepath = path.join(UPLOADS_DIR, filename);
+
+  // Ensure directory exists
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+
+  fs.writeFileSync(filepath, buffer);
+
+  return `/uploads/avatars/${filename}`;
 }
 
 export async function getProfile(userId: string) {
