@@ -41,6 +41,9 @@ export function createApp() {
   app.use(express.json({ limit: "10mb" }));
   app.use(requestContextMiddleware);
 
+  // Serve static files from the uploads directory
+  app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });

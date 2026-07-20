@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createApp = createApp;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 const env_1 = require("./config/env");
 const errorHandler_1 = require("./shared/middlewares/errorHandler");
 const auth_routes_1 = require("./modules/auth/auth.routes");
@@ -38,6 +39,8 @@ function createApp() {
     }));
     app.use(express_1.default.json({ limit: "10mb" }));
     app.use(requestContext_1.requestContextMiddleware);
+    // Serve static files from the uploads directory
+    app.use("/uploads", express_1.default.static(path_1.default.join(__dirname, "../uploads")));
     app.get("/health", (_req, res) => {
         res.json({ status: "ok" });
     });

@@ -3,23 +3,31 @@ import {
   useState,
   useCallback,
   type FormEvent,
-  type ReactNode,
 } from "react";
 import {
   ArrowRight,
-  Clock,
-  DollarSign,
-  PencilLine,
-  PlusCircle,
-  RefreshCw,
-  Sparkles,
-  Trash2,
-  X,
+  Plus,
   Trophy,
   Users,
+  Calendar,
+  MapPin,
+  Pencil,
+  Trash2,
+  Check,
+  TrendingUp,
+  Activity,
+  X,
+  Sparkles,
+  AlertCircle,
+  DollarSign,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../../context/AuthContext";
 import { getDashboardSummary } from "../../../api/dashboard.api";
+import {
+  confirmRegistrationPayment,
+  confirmTeamPayment,
+} from "../../../api/payments.api";
 import {
   createTournament,
   deleteTournament,
@@ -36,6 +44,7 @@ import type {
   DashboardSummary,
   Tournament,
   TournamentFormInput,
+  PendingConfirmationEntry,
 } from "../../../types/api.types";
 
 const EMPTY_TOURNAMENT_FORM: TournamentFormInput = {
@@ -46,23 +55,22 @@ const EMPTY_TOURNAMENT_FORM: TournamentFormInput = {
 };
 
 export function DashboardPage() {
+  const { user } = useAuth();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSavingTournament, setIsSavingTournament] = useState(false);
-  const [deletingTournamentId, setDeletingTournamentId] = useState<
-    string | null
-  >(null);
-  const [publishingTournamentId, setPublishingTournamentId] = useState<
-    string | null
-  >(null);
-  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(
-    null,
-  );
-  const [tournamentForm, setTournamentForm] = useState<TournamentFormInput>(
-    EMPTY_TOURNAMENT_FORM,
-  );
+  const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
+  const [tournamentForm, setTournamentForm] = useState<TournamentFormInput>(EMPTY_TOURNAMENT_FORM);
+
+  // Action loading states
+  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
+  const [publishingTournamentId, setPublishingTournamentId] = useState<string | null>(null);
+  const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setError(null);
@@ -87,7 +95,13 @@ export function DashboardPage() {
     loadDashboard();
   }, [loadDashboard]);
 
-  function handleSelectTournament(tournament: Tournament) {
+  function handleOpenCreateModal() {
+    setEditingTournamentId(null);
+    setTournamentForm(EMPTY_TOURNAMENT_FORM);
+    setIsModalOpen(true);
+  }
+
+  function handleOpenEditModal(tournament: Tournament) {
     setEditingTournamentId(tournament.id);
     setTournamentForm({
       name: tournament.name,
@@ -96,12 +110,7 @@ export function DashboardPage() {
       location: tournament.location,
       status: tournament.status,
     });
-    setError(null);
-  }
-
-  function handleResetTournamentForm() {
-    setEditingTournamentId(null);
-    setTournamentForm(EMPTY_TOURNAMENT_FORM);
+    setIsModalOpen(true);
   }
 
   async function handleTournamentSubmit(event: FormEvent<HTMLFormElement>) {
@@ -121,7 +130,9 @@ export function DashboardPage() {
         await createTournament(payload);
       }
 
-      handleResetTournamentForm();
+      setIsModalOpen(false);
+      setTournamentForm(EMPTY_TOURNAMENT_FORM);
+      setEditingTournamentId(null);
       await loadDashboard();
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível salvar o torneio."));
@@ -143,9 +154,6 @@ export function DashboardPage() {
 
     try {
       await deleteTournament(tournamentId);
-      if (editingTournamentId === tournamentId) {
-        handleResetTournamentForm();
-      }
       await loadDashboard();
     } catch (err) {
       setError(getApiErrorMessage(err, "Não foi possível excluir o torneio."));
@@ -168,456 +176,561 @@ export function DashboardPage() {
     }
   }
 
-  if (isLoading) {
-    return <p className="text-slate-400">Carregando...</p>;
+  async function handleConfirmPayment(entry: PendingConfirmationEntry) {
+    const confirmed = window.confirm(
+      `Deseja confirmar manualmente o pagamento de R$ ${entry.amountDue} para ${entry.playerName}?`
+    );
+    if (!confirmed) return;
+
+    setConfirmingPaymentId(entry.id);
+    setError(null);
+
+    try {
+      if (entry.kind === "registration") {
+        await confirmRegistrationPayment(entry.id);
+      } else {
+        await confirmTeamPayment(entry.id, "FULL");
+      }
+      await loadDashboard();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Erro ao confirmar pagamento."));
+    } finally {
+      setConfirmingPaymentId(null);
+    }
   }
 
-  if (error && !summary) {
-    return <p className="text-red-400">{error}</p>;
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+      </div>
+    );
   }
 
   if (!summary) return null;
 
+  // Metric aggregates
+  const totalTournamentsCount = tournaments.length;
+  const activeTournamentsCount = tournaments.filter(
+    (t) => t.status === "PUBLISHED" || t.status === "REGISTRATIONS_CLOSED"
+  ).length;
+  const finishedTournamentsCount = tournaments.filter(
+    (t) => t.status === "FINISHED"
+  ).length;
+  const totalRegistrationsCount = summary.confirmedEntriesCount;
+
+  // Tournament Status Distribution for Donut Chart
+  const statusCounts = {
+    DRAFT: 0,
+    PUBLISHED: 0,
+    REGISTRATIONS_CLOSED: 0,
+    FINISHED: 0,
+    CANCELLED: 0,
+  };
+  tournaments.forEach((t) => {
+    if (statusCounts[t.status] !== undefined) {
+      statusCounts[t.status]++;
+    }
+  });
+
+  const totalStatus = totalTournamentsCount || 1;
+  const slices = [
+    { label: "Rascunho", count: statusCounts.DRAFT, color: "#64748b", className: "bg-slate-500" },
+    { label: "Inscrições Abertas", count: statusCounts.PUBLISHED, color: "#10b981", className: "bg-emerald-500" },
+    { label: "Inscrições Fechadas", count: statusCounts.REGISTRATIONS_CLOSED, color: "#f59e0b", className: "bg-amber-500" },
+    { label: "Finalizado", count: statusCounts.FINISHED, color: "#6366f1", className: "bg-indigo-500" },
+    { label: "Cancelado", count: statusCounts.CANCELLED, color: "#ef4444", className: "bg-red-500" },
+  ];
+
+  // Calculate conic gradient parts for the donut chart
+  let currentAccum = 0;
+  const conicParts = slices.map((s) => {
+    const percent = (s.count / totalStatus) * 100;
+    const start = currentAccum;
+    currentAccum += percent;
+    return `${s.color} ${start}% ${currentAccum}%`;
+  });
+  const donutGradient = `conic-gradient(${conicParts.join(", ")})`;
+
+  // Filter next/upcoming tournaments
+  const upcomingTournaments = tournaments
+    .filter((t) => t.status !== "FINISHED" && t.status !== "CANCELLED")
+    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+  const currentDateString = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const formattedDate = currentDateString.charAt(0).toUpperCase() + currentDateString.slice(1);
+
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-emerald-500/15 via-slate-950 to-slate-950 p-8 shadow-2xl shadow-black/20">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              Painel administrativo
-            </span>
-
-            <div>
-              <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-                Dashboard
-              </h1>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-                Aqui você confirma pagamentos, acompanha a operação e gera o
-                chaveamento automático das categorias prontas para a próxima
-                rodada.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link
-              to="/torneios"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:border-emerald-400/40 hover:bg-emerald-400/10"
-            >
-              Ver torneios
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-
-            <button
-              onClick={loadDashboard}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Atualizar painel
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          <StatusPill
-            label="Torneios ativos"
-            value={summary.activeTournaments}
-          />
-          <StatusPill
-            label="Pagamentos pendentes"
-            value={summary.pendingConfirmations.length}
-          />
-          <StatusPill
-            label="Categorias para chaveamento"
-            value={summary.bracketCandidates.length}
-          />
-        </div>
-      </section>
-
-      {error && (
-        <p className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={Trophy}
-          label="Torneios ativos"
-          value={summary.activeTournaments}
-        />
-        <MetricCard
-          icon={Users}
-          label="Inscrições confirmadas"
-          value={summary.confirmedEntriesCount}
-        />
-        <MetricCard
-          icon={DollarSign}
-          label="Receita confirmada"
-          value={`R$ ${summary.confirmedRevenue}`}
-          accent="text-emerald-400"
-        />
-        <MetricCard
-          icon={Clock}
-          label="Receita pendente"
-          value={`R$ ${summary.pendingRevenue}`}
-          accent="text-amber-400"
-        />
-      </div>
-
-
-
-      <TournamentManagementPanel
-        tournaments={tournaments}
-        onSelectTournament={handleSelectTournament}
-        onResetTournamentForm={handleResetTournamentForm}
-        onTournamentFormChange={setTournamentForm}
-        onTournamentSubmit={handleTournamentSubmit}
-        onDeleteTournament={handleDeleteTournament}
-        onPublishTournament={handlePublishTournament}
-        tournamentForm={tournamentForm}
-        editingTournamentId={editingTournamentId}
-        isSavingTournament={isSavingTournament}
-        deletingTournamentId={deletingTournamentId}
-        publishingTournamentId={publishingTournamentId}
-      />
-    </div>
-  );
-}
-
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: typeof Trophy;
-  label: string;
-  value: string | number;
-  accent?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-black/10">
-      <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${accent ?? "text-emerald-400"}`} />
-        <p className="text-xs uppercase tracking-wide text-slate-400">
-          {label}
-        </p>
-      </div>
-      <p className={`mt-2 text-xl font-bold ${accent ?? "text-white"}`}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function StatusPill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.28em] text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 text-2xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-
-
-function TournamentManagementPanel({
-  tournaments,
-  tournamentForm,
-  editingTournamentId,
-  isSavingTournament,
-  deletingTournamentId,
-  publishingTournamentId,
-  onSelectTournament,
-  onResetTournamentForm,
-  onTournamentFormChange,
-  onTournamentSubmit,
-  onDeleteTournament,
-  onPublishTournament,
-}: {
-  tournaments: Tournament[];
-  tournamentForm: TournamentFormInput;
-  editingTournamentId: string | null;
-  isSavingTournament: boolean;
-  deletingTournamentId: string | null;
-  publishingTournamentId: string | null;
-  onSelectTournament: (tournament: Tournament) => void;
-  onResetTournamentForm: () => void;
-  onTournamentFormChange: (value: TournamentFormInput) => void;
-  onTournamentSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onDeleteTournament: (tournamentId: string) => void;
-  onPublishTournament: (tournamentId: string) => void;
-}) {
-  return (
-    <section className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6 shadow-xl shadow-black/20">
-      <div className="flex flex-col gap-3 border-b border-slate-800 pb-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-8 pb-12">
+      {/* Header section */}
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm text-emerald-400">CRUD de torneios</p>
-          <h2 className="mt-1 text-2xl font-black text-white">
-            Gerenciar torneios
-          </h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Crie, edite ou exclua torneios usando as rotas já existentes do
-            backend.
+          <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">
+            Olá, {user?.name || "Administrador"}!
+          </h1>
+          <p className="mt-1 text-sm text-slate-400 flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-emerald-400" />
+            {formattedDate}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-slate-300">
-          <PlusCircle className="h-4 w-4 text-emerald-400" />
-          {tournaments.length} cadastrados
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <form
-          onSubmit={onTournamentSubmit}
-          className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5"
+        <button
+          onClick={handleOpenCreateModal}
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 hover:shadow-emerald-400/30"
         >
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-bold text-white">
-              {editingTournamentId ? "Editar torneio" : "Novo torneio"}
-            </h3>
+          <Plus className="h-5 w-5" />
+          Novo Torneio
+        </button>
+      </header>
 
-            {editingTournamentId && (
-              <button
-                type="button"
-                onClick={onResetTournamentForm}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm font-medium text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                <X className="h-4 w-4" />
-                Limpar
-              </button>
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* Summary Cards */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          icon={Trophy}
+          title="Total de Torneios"
+          value={totalTournamentsCount}
+          accentColor="text-emerald-400"
+          bgColor="from-emerald-500/5 to-transparent"
+          borderColor="border-emerald-500/10 hover:border-emerald-500/20"
+        />
+        <SummaryCard
+          icon={Activity}
+          title="Torneios em Andamento"
+          value={activeTournamentsCount}
+          accentColor="text-sky-400"
+          bgColor="from-sky-500/5 to-transparent"
+          borderColor="border-sky-500/10 hover:border-sky-500/20"
+        />
+        <SummaryCard
+          icon={Check}
+          title="Torneios Finalizados"
+          value={finishedTournamentsCount}
+          accentColor="text-indigo-400"
+          bgColor="from-indigo-500/5 to-transparent"
+          borderColor="border-indigo-500/10 hover:border-indigo-500/20"
+        />
+        <SummaryCard
+          icon={Users}
+          title="Inscrições Totais"
+          value={totalRegistrationsCount}
+          accentColor="text-amber-400"
+          bgColor="from-amber-500/5 to-transparent"
+          borderColor="border-amber-500/10 hover:border-amber-500/20"
+        />
+      </section>
+
+      {/* Main Grid Layout */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left Side: Tournaments and Pending Payments */}
+        <div className="space-y-6 lg:col-span-2">
+
+          {/* Real Pending Payments */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md">
+            <div className="mb-5">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-emerald-400" />
+                Confirmações de Pagamento Pendentes
+              </h3>
+              <p className="text-xs text-slate-400">Inscrições aguardando compensação manual ou pix</p>
+            </div>
+
+            {summary.pendingConfirmations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-slate-850 rounded-xl">
+                <Check className="h-10 w-10 text-emerald-500/40 mb-2" />
+                <p className="text-sm text-slate-400 font-medium">Tudo em dia! Nenhum pagamento pendente.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {summary.pendingConfirmations.slice(0, 6).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex flex-col gap-3 rounded-xl border border-slate-900 bg-slate-950/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white">{entry.playerName}</span>
+                        <span className="rounded bg-slate-900 border border-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400 uppercase tracking-wide">
+                          {entry.kind === "registration" ? "Individual" : "Dupla"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">{entry.tournamentName}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 sm:justify-end">
+                      <span className="font-mono text-sm font-bold text-emerald-400">
+                        R$ {Number(entry.amountDue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <button
+                        onClick={() => handleConfirmPayment(entry)}
+                        disabled={confirmingPaymentId === entry.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 transition disabled:opacity-50"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Confirmar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          <div className="mt-5 space-y-4">
-            {editingTournamentId && (
-              <FieldLabel label="Status">
-                <select
-                  value={tournamentForm.status || "DRAFT"}
+          {/* Tournaments list */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-emerald-400" />
+                  Todos os Torneios
+                </h3>
+                <p className="text-xs text-slate-400">Lista geral de torneios do sistema</p>
+              </div>
+            </div>
+
+            {upcomingTournaments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Trophy className="h-12 w-12 text-slate-700 mb-3" />
+                <p className="text-sm text-slate-400 font-medium">Nenhum torneio agendado no momento.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-900">
+                {upcomingTournaments.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between group"
+                  >
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-white group-hover:text-emerald-400 transition">
+                        {t.name}
+                      </h4>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-slate-500" />
+                          {new Date(t.eventDate).toLocaleDateString("pt-BR")}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-slate-500" />
+                          {t.location}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end sm:self-center">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${statusBadgeClasses(
+                          t.status
+                        )}`}
+                      >
+                        {statusLabel(t.status)}
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        {t.status === "DRAFT" && (
+                          <button
+                            onClick={() => handlePublishTournament(t.id)}
+                            disabled={publishingTournamentId === t.id}
+                            className="p-2 rounded-lg text-amber-500 hover:text-amber-400 hover:bg-slate-900 transition disabled:opacity-50"
+                            title={publishingTournamentId === t.id ? "Publicando..." : "Publicar"}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenEditModal(t)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <Link
+                          to={`/admin/torneios/${t.id}`}
+                          className="p-2 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-900 transition"
+                          title="Gerenciar"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteTournament(t.id)}
+                          disabled={deletingTournamentId === t.id}
+                          className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-900 transition"
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side: Donut Chart & Bracket Candidates */}
+        <div className="space-y-6">
+
+          {/* Pizza/Donut Status Chart */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md flex flex-col items-center">
+            <div className="w-full mb-6 text-left">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-emerald-400" />
+                Status dos Torneios
+              </h3>
+              <p className="text-xs text-slate-400">Distribuição geral de torneios</p>
+            </div>
+
+            {/* Circular Donut Diagram */}
+            <div className="relative flex items-center justify-center w-40 h-40 rounded-full" style={{ background: donutGradient }}>
+              {/* Inner Hole */}
+              <div className="absolute flex flex-col items-center justify-center w-28 h-28 rounded-full bg-slate-950 border border-slate-900 shadow-inner">
+                <span className="text-3xl font-black text-white">{totalTournamentsCount}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Torneios</span>
+              </div>
+            </div>
+
+            {/* Legends */}
+            <div className="w-full mt-6 space-y-2">
+              {slices.map((slice, idx) => (
+                <div key={idx} className="flex items-center justify-between text-xs text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${slice.className}`} />
+                    <span>{slice.label}</span>
+                  </div>
+                  <span className="font-bold text-white">{slice.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bracket Candidates */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-emerald-400" />
+                Categorias Prontas
+              </h3>
+              <p className="text-xs text-slate-400">Categorias aptas para chaveamento</p>
+            </div>
+
+            {summary.bracketCandidates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center border border-slate-900 rounded-xl">
+                <Sparkles className="h-8 w-8 text-slate-700 mb-2" />
+                <p className="text-xs text-slate-400">Nenhuma categoria com atletas mínimos pronta para chaveamento.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {summary.bracketCandidates.map((cand) => (
+                  <div
+                    key={cand.id}
+                    className="flex flex-col gap-2 rounded-xl bg-slate-900/60 border border-slate-800 p-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">{cand.categoryName}</h4>
+                        <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-400">
+                          {cand.confirmedEntriesCount} Confirmados
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-400">{cand.tournamentName}</p>
+                    </div>
+
+                    <Link
+                      to={`/admin/torneios/${cand.id}`}
+                      className="mt-1 text-center block text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition"
+                    >
+                      Gerenciar Categoria
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tournament Modal (Create / Edit) */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute right-4 top-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-xl font-black text-white flex items-center gap-2 mb-6">
+              <Sparkles className="h-5 w-5 text-emerald-400" />
+              {editingTournamentId ? "Editar Torneio" : "Novo Torneio"}
+            </h3>
+
+            <form onSubmit={handleTournamentSubmit} className="space-y-4">
+              {editingTournamentId && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Status
+                  </label>
+                  <select
+                    value={tournamentForm.status || "DRAFT"}
+                    onChange={(event) =>
+                      setTournamentForm({
+                        ...tournamentForm,
+                        status: event.target.value as any,
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                  >
+                    <option value="DRAFT">Rascunho</option>
+                    <option value="PUBLISHED">Inscrições abertas</option>
+                    <option value="REGISTRATIONS_CLOSED">Inscrições encerradas</option>
+                    <option value="CANCELLED">Cancelado</option>
+                    <option value="FINISHED">Finalizado</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Nome
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={tournamentForm.name}
                   onChange={(event) =>
-                    onTournamentFormChange({
+                    setTournamentForm({
                       ...tournamentForm,
-                      status: event.target.value as any,
+                      name: event.target.value,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                  placeholder="Ex: Copa ARES de Verão"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Descrição
+                </label>
+                <textarea
+                  value={tournamentForm.description}
+                  onChange={(event) =>
+                    setTournamentForm({
+                      ...tournamentForm,
+                      description: event.target.value,
+                    })
+                  }
+                  rows={3}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                  placeholder="Detalhes opcionais sobre o torneio"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Data e Hora
+                  </label>
+                  <input
+                    required
+                    type="datetime-local"
+                    value={tournamentForm.eventDate}
+                    onChange={(event) =>
+                      setTournamentForm({
+                        ...tournamentForm,
+                        eventDate: event.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Local
+                  </label>
+                  <input
+                    required
+                    type="text"
+                    value={tournamentForm.location}
+                    onChange={(event) =>
+                      setTournamentForm({
+                        ...tournamentForm,
+                        location: event.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                    placeholder="Ex: Praia de Iracema"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="rounded-xl border border-slate-800 bg-transparent px-5 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-900 hover:text-white transition"
                 >
-                  <option value="DRAFT">Rascunho</option>
-                  <option value="PUBLISHED">Inscrições abertas</option>
-                  <option value="REGISTRATIONS_CLOSED">Inscrições encerradas</option>
-                  <option value="CANCELLED">Cancelado</option>
-                  <option value="FINISHED">Finalizado</option>
-                </select>
-              </FieldLabel>
-            )}
-
-            <FieldLabel label="Nome">
-              <input
-                required
-                type="text"
-                value={tournamentForm.name}
-                onChange={(event) =>
-                  onTournamentFormChange({
-                    ...tournamentForm,
-                    name: event.target.value,
-                  })
-                }
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
-                placeholder="Ex: Copa ARES de Verão"
-              />
-            </FieldLabel>
-
-            <FieldLabel label="Descrição">
-              <textarea
-                value={tournamentForm.description}
-                onChange={(event) =>
-                  onTournamentFormChange({
-                    ...tournamentForm,
-                    description: event.target.value,
-                  })
-                }
-                rows={4}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
-                placeholder="Detalhes opcionais sobre o torneio"
-              />
-            </FieldLabel>
-
-            <FieldLabel label="Data e hora">
-              <input
-                required
-                type="datetime-local"
-                value={tournamentForm.eventDate}
-                onChange={(event) =>
-                  onTournamentFormChange({
-                    ...tournamentForm,
-                    eventDate: event.target.value,
-                  })
-                }
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
-              />
-            </FieldLabel>
-
-            <FieldLabel label="Local">
-              <input
-                required
-                type="text"
-                value={tournamentForm.location}
-                onChange={(event) =>
-                  onTournamentFormChange({
-                    ...tournamentForm,
-                    location: event.target.value,
-                  })
-                }
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400"
-                placeholder="Ex: Praia de Iracema"
-              />
-            </FieldLabel>
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingTournament}
+                  className="rounded-xl bg-emerald-500 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 transition"
+                >
+                  {isSavingTournament ? "Salvando..." : "Salvar"}
+                </button>
+              </div>
+            </form>
           </div>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="submit"
-              disabled={isSavingTournament}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <PlusCircle className="h-4 w-4" />
-              {isSavingTournament
-                ? "Salvando..."
-                : editingTournamentId
-                  ? "Salvar alterações"
-                  : "Criar torneio"}
-            </button>
-          </div>
-        </form>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">
-              Torneios cadastrados
-            </h3>
-            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold text-slate-300">
-              {tournaments.length}
-            </span>
-          </div>
-
-          {tournaments.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-slate-400">
-              Nenhum torneio cadastrado ainda.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tournaments.map((tournament) => {
-                const isSelected = editingTournamentId === tournament.id;
-
-                return (
-                  <article
-                    key={tournament.id}
-                    className={`rounded-2xl border p-4 transition ${isSelected
-                        ? "border-emerald-400/50 bg-emerald-500/5"
-                        : "border-slate-800 bg-slate-900/60"
-                      }`}
-                  >
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <h4 className="text-lg font-semibold text-white">
-                          {tournament.name}
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-400">
-                          {new Date(tournament.eventDate).toLocaleString(
-                            "pt-BR",
-                          )}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-300">
-                          {tournament.location}
-                        </p>
-                        {tournament.description && (
-                          <p className="mt-2 text-sm text-slate-400">
-                            {tournament.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClasses(tournament.status)}`}
-                      >
-                        {statusLabel(tournament.status)}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Link
-                        to={`/admin/torneios/${tournament.id}`}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                        Gerenciar
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => onSelectTournament(tournament)}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                      >
-                        <PencilLine className="h-4 w-4" />
-                        Editar
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => onDeleteTournament(tournament.id)}
-                        disabled={deletingTournamentId === tournament.id}
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {deletingTournamentId === tournament.id
-                          ? "Excluindo..."
-                          : "Excluir"}
-                      </button>
-
-                      {tournament.status === "DRAFT" && (
-                        <button
-                          type="button"
-                          onClick={() => onPublishTournament(tournament.id)}
-                          disabled={publishingTournamentId === tournament.id}
-                          className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          {publishingTournamentId === tournament.id
-                            ? "Publicando..."
-                            : "Publicar"}
-                        </button>
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
 }
 
-function FieldLabel({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+interface SummaryCardProps {
+  icon: typeof Trophy;
+  title: string;
+  value: string | number;
+  accentColor: string;
+  bgColor: string;
+  borderColor: string;
+}
+
+function SummaryCard({
+  icon: Icon,
+  title,
+  value,
+  accentColor,
+  bgColor,
+  borderColor,
+}: SummaryCardProps) {
   return (
-    <label className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-        {label}
-      </span>
-      {children}
-    </label>
+    <div className={`rounded-2xl border bg-gradient-to-br ${bgColor} ${borderColor} p-6 shadow-xl backdrop-blur-md transition-all duration-300 flex items-center justify-between`}>
+      <div className="space-y-1">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+          {title}
+        </span>
+        <span className="text-3xl font-black text-white block">
+          {value}
+        </span>
+      </div>
+      <div className={`p-3 rounded-xl bg-slate-900/60 border border-slate-800 ${accentColor}`}>
+        <Icon className="h-6 w-6" />
+      </div>
+    </div>
   );
 }
 

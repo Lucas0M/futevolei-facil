@@ -47,13 +47,14 @@ export async function promoteToAdmin(targetUserId: string) {
   return toPublicUser(updated);
 }
 
-function toPublicUser(user: { id: string; name: string; email: string; phone: string | null; role: string; createdAt: Date }) {
+function toPublicUser(user: { id: string; name: string; email: string; phone: string | null; role: string; avatarUrl: string | null; createdAt: Date }) {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     phone: user.phone,
     role: user.role,
+    avatarUrl: user.avatarUrl,
     createdAt: user.createdAt,
   };
 }
