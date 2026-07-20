@@ -17,12 +17,17 @@ import {
   TrendingUp,
   Activity,
   X,
-  Clock,
   Sparkles,
+  AlertCircle,
+  DollarSign,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { getDashboardSummary } from "../../../api/dashboard.api";
+import {
+  confirmRegistrationPayment,
+  confirmTeamPayment,
+} from "../../../api/payments.api";
 import {
   createTournament,
   deleteTournament,
@@ -39,6 +44,7 @@ import type {
   DashboardSummary,
   Tournament,
   TournamentFormInput,
+  PendingConfirmationEntry,
 } from "../../../types/api.types";
 
 const EMPTY_TOURNAMENT_FORM: TournamentFormInput = {
@@ -54,16 +60,17 @@ export function DashboardPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSavingTournament, setIsSavingTournament] = useState(false);
   const [editingTournamentId, setEditingTournamentId] = useState<string | null>(null);
   const [tournamentForm, setTournamentForm] = useState<TournamentFormInput>(EMPTY_TOURNAMENT_FORM);
-  
-  // Loading action states
+
+  // Action loading states
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null);
   const [publishingTournamentId, setPublishingTournamentId] = useState<string | null>(null);
+  const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setError(null);
@@ -169,6 +176,29 @@ export function DashboardPage() {
     }
   }
 
+  async function handleConfirmPayment(entry: PendingConfirmationEntry) {
+    const confirmed = window.confirm(
+      `Deseja confirmar manualmente o pagamento de R$ ${entry.amountDue} para ${entry.playerName}?`
+    );
+    if (!confirmed) return;
+
+    setConfirmingPaymentId(entry.id);
+    setError(null);
+
+    try {
+      if (entry.kind === "registration") {
+        await confirmRegistrationPayment(entry.id);
+      } else {
+        await confirmTeamPayment(entry.id, "FULL");
+      }
+      await loadDashboard();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Erro ao confirmar pagamento."));
+    } finally {
+      setConfirmingPaymentId(null);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -189,75 +219,43 @@ export function DashboardPage() {
   ).length;
   const totalRegistrationsCount = summary.confirmedEntriesCount;
 
-  // Chart Monthly Aggegation
-  const lastMonths = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    return {
-      monthName: d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", ""),
-      year: d.getFullYear(),
-      count: 0,
-      monthNum: d.getMonth(),
-    };
-  }).reverse();
-
+  // Tournament Status Distribution for Donut Chart
+  const statusCounts = {
+    DRAFT: 0,
+    PUBLISHED: 0,
+    REGISTRATIONS_CLOSED: 0,
+    FINISHED: 0,
+    CANCELLED: 0,
+  };
   tournaments.forEach((t) => {
-    const tDate = new Date(t.eventDate);
-    const match = lastMonths.find(
-      (m) => m.monthNum === tDate.getMonth() && m.year === tDate.getFullYear()
-    );
-    if (match) {
-      match.count++;
+    if (statusCounts[t.status] !== undefined) {
+      statusCounts[t.status]++;
     }
   });
 
-  // Calculate highest count for SVG sizing
-  const maxCount = Math.max(...lastMonths.map((m) => m.count), 4);
+  const totalStatus = totalTournamentsCount || 1;
+  const slices = [
+    { label: "Rascunho", count: statusCounts.DRAFT, color: "#64748b", className: "bg-slate-500" },
+    { label: "Inscrições Abertas", count: statusCounts.PUBLISHED, color: "#10b981", className: "bg-emerald-500" },
+    { label: "Inscrições Fechadas", count: statusCounts.REGISTRATIONS_CLOSED, color: "#f59e0b", className: "bg-amber-500" },
+    { label: "Finalizado", count: statusCounts.FINISHED, color: "#6366f1", className: "bg-indigo-500" },
+    { label: "Cancelado", count: statusCounts.CANCELLED, color: "#ef4444", className: "bg-red-500" },
+  ];
+
+  // Calculate conic gradient parts for the donut chart
+  let currentAccum = 0;
+  const conicParts = slices.map((s) => {
+    const percent = (s.count / totalStatus) * 100;
+    const start = currentAccum;
+    currentAccum += percent;
+    return `${s.color} ${start}% ${currentAccum}%`;
+  });
+  const donutGradient = `conic-gradient(${conicParts.join(", ")})`;
 
   // Filter next/upcoming tournaments
   const upcomingTournaments = tournaments
     .filter((t) => t.status !== "FINISHED" && t.status !== "CANCELLED")
-    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
-    .slice(0, 5);
-
-  // Mocked recent actions to ensure perfect presentation as per requirements
-  const recentActivities = [
-    {
-      id: "1",
-      icon: Plus,
-      description: "Novo torneio Copa Verão ARES criado com sucesso.",
-      time: "Há 10 minutos",
-      type: "create",
-    },
-    {
-      id: "2",
-      icon: Pencil,
-      description: "Categoria 'Intermediário Masculino' atualizada.",
-      time: "Há 2 horas",
-      type: "edit",
-    },
-    {
-      id: "3",
-      icon: Users,
-      description: "Inscrição recebida para a dupla Roberto + Marcos.",
-      time: "Há 4 horas",
-      type: "registration",
-    },
-    {
-      id: "4",
-      icon: Check,
-      description: "Pagamento manual confirmado para categoria Misto Nível B.",
-      time: "Há 1 dia",
-      type: "payment",
-    },
-    {
-      id: "5",
-      icon: Trophy,
-      description: "Torneio Integração de Futevôlei concluído.",
-      time: "Há 2 dias",
-      type: "finish",
-    },
-  ];
+    .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
 
   const currentDateString = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -332,81 +330,78 @@ export function DashboardPage() {
         />
       </section>
 
-      {/* Main Grid */}
+      {/* Main Grid Layout */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Columns (Chart & Upcoming) */}
+        {/* Left Side: Tournaments and Pending Payments */}
         <div className="space-y-6 lg:col-span-2">
-          {/* Chart Card */}
+
+          {/* Real Pending Payments */}
           <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-emerald-400" />
-                  Torneios Criados
-                </h3>
-                <p className="text-xs text-slate-400">Torneios lançados nos últimos 6 meses</p>
-              </div>
+            <div className="mb-5">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-emerald-400" />
+                Confirmações de Pagamento Pendentes
+              </h3>
+              <p className="text-xs text-slate-400">Inscrições aguardando compensação manual ou pix</p>
             </div>
 
-            {/* SVG Chart */}
-            <div className="w-full h-48 flex items-end justify-between px-2 pt-4">
-              {lastMonths.map((item, idx) => {
-                const barHeightPercent = (item.count / maxCount) * 100;
-                return (
-                  <div key={idx} className="flex flex-col items-center flex-1 group">
-                    {/* Tooltip on hover */}
-                    <div className="relative mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                      <span className="bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded shadow-md border border-slate-700">
-                        {item.count} {item.count === 1 ? "torneio" : "torneios"}
+            {summary.pendingConfirmations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-slate-850 rounded-xl">
+                <Check className="h-10 w-10 text-emerald-500/40 mb-2" />
+                <p className="text-sm text-slate-400 font-medium">Tudo em dia! Nenhum pagamento pendente.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {summary.pendingConfirmations.slice(0, 6).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="flex flex-col gap-3 rounded-xl border border-slate-900 bg-slate-950/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white">{entry.playerName}</span>
+                        <span className="rounded bg-slate-900 border border-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400 uppercase tracking-wide">
+                          {entry.kind === "registration" ? "Individual" : "Dupla"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">{entry.tournamentName}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 sm:justify-end">
+                      <span className="font-mono text-sm font-bold text-emerald-400">
+                        R$ {Number(entry.amountDue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </span>
+                      <button
+                        onClick={() => handleConfirmPayment(entry)}
+                        disabled={confirmingPaymentId === entry.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 transition disabled:opacity-50"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        Confirmar
+                      </button>
                     </div>
-                    {/* Bar */}
-                    <div className="w-8 sm:w-12 bg-slate-900 rounded-t-md overflow-hidden h-32 flex items-end">
-                      <div
-                        style={{ height: `${Math.max(barHeightPercent, 6)}%` }}
-                        className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm transition-all duration-500 group-hover:from-emerald-500 group-hover:to-emerald-300"
-                      />
-                    </div>
-                    {/* Label */}
-                    <span className="mt-2 text-xs font-semibold text-slate-400 uppercase">
-                      {item.monthName}
-                    </span>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Upcoming Tournaments */}
+          {/* Tournaments list */}
           <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-emerald-400" />
-                  Próximos Torneios
+                  <Trophy className="h-5 w-5 text-emerald-400" />
+                  Todos os Torneios
                 </h3>
-                <p className="text-xs text-slate-400">Próximos eventos programados na agenda</p>
+                <p className="text-xs text-slate-400">Lista geral de torneios do sistema</p>
               </div>
-
-              <Link
-                to="/torneios"
-                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1"
-              >
-                Ver todos
-                <ArrowRight className="h-3 w-3" />
-              </Link>
             </div>
 
             {upcomingTournaments.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Trophy className="h-12 w-12 text-slate-700 mb-3" />
                 <p className="text-sm text-slate-400 font-medium">Nenhum torneio agendado no momento.</p>
-                <button
-                  onClick={handleOpenCreateModal}
-                  className="mt-4 text-xs font-bold text-emerald-400 hover:underline"
-                >
-                  Criar um torneio agora
-                </button>
               </div>
             ) : (
               <div className="divide-y divide-slate-900">
@@ -482,37 +477,84 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Column (Recent Activities) */}
-        <div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md h-full flex flex-col">
-            <div className="mb-6">
+        {/* Right Side: Donut Chart & Bracket Candidates */}
+        <div className="space-y-6">
+
+          {/* Pizza/Donut Status Chart */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md flex flex-col items-center">
+            <div className="w-full mb-6 text-left">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Activity className="h-5 w-5 text-emerald-400" />
-                Atividades Recentes
+                <TrendingUp className="h-5 w-5 text-emerald-400" />
+                Status dos Torneios
               </h3>
-              <p className="text-xs text-slate-400">Últimas ações e ocorrências no sistema</p>
+              <p className="text-xs text-slate-400">Distribuição geral de torneios</p>
             </div>
 
-            <div className="relative flex-1 space-y-6 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-900">
-              {recentActivities.map((act) => {
-                const Icon = act.icon;
-                return (
-                  <div key={act.id} className="relative flex gap-4 items-start pl-2">
-                    <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 border border-slate-800 text-emerald-400">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm text-slate-300 leading-snug">
-                        {act.description}
-                      </p>
-                      <span className="block text-[11px] text-slate-500 font-medium">
-                        {act.time}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Circular Donut Diagram */}
+            <div className="relative flex items-center justify-center w-40 h-40 rounded-full" style={{ background: donutGradient }}>
+              {/* Inner Hole */}
+              <div className="absolute flex flex-col items-center justify-center w-28 h-28 rounded-full bg-slate-950 border border-slate-900 shadow-inner">
+                <span className="text-3xl font-black text-white">{totalTournamentsCount}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Torneios</span>
+              </div>
             </div>
+
+            {/* Legends */}
+            <div className="w-full mt-6 space-y-2">
+              {slices.map((slice, idx) => (
+                <div key={idx} className="flex items-center justify-between text-xs text-slate-300">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${slice.className}`} />
+                    <span>{slice.label}</span>
+                  </div>
+                  <span className="font-bold text-white">{slice.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bracket Candidates */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-6 shadow-xl backdrop-blur-md">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-emerald-400" />
+                Categorias Prontas
+              </h3>
+              <p className="text-xs text-slate-400">Categorias aptas para chaveamento</p>
+            </div>
+
+            {summary.bracketCandidates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center border border-slate-900 rounded-xl">
+                <Sparkles className="h-8 w-8 text-slate-700 mb-2" />
+                <p className="text-xs text-slate-400">Nenhuma categoria com atletas mínimos pronta para chaveamento.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {summary.bracketCandidates.map((cand) => (
+                  <div
+                    key={cand.id}
+                    className="flex flex-col gap-2 rounded-xl bg-slate-900/60 border border-slate-800 p-3"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">{cand.categoryName}</h4>
+                        <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] text-emerald-400">
+                          {cand.confirmedEntriesCount} Confirmados
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-400">{cand.tournamentName}</p>
+                    </div>
+
+                    <Link
+                      to={`/admin/torneios/${cand.id}`}
+                      className="mt-1 text-center block text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition"
+                    >
+                      Gerenciar Categoria
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
